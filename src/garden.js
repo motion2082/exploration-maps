@@ -113,7 +113,7 @@ export class GardenView extends ItemView {
     head.createDiv({ cls: "ivg-title", text: "Garden" });
     const rb = head.createEl("button", { cls: "clickable-icon ivg-icon", attr: { "aria-label": "Refresh" }, text: "↻" }); rb.onclick = () => { void this.refresh(); };
     el.createDiv({ cls: "ivg-sub", text: `${G.folders.join(", ") || "No folders set"} · ${plural(N.length, "note")}` });
-    if (!N.length) { el.createDiv({ cls: "ivg-empty", text: "No notes in the Garden's folders. Pick them in Settings → Maps of the Ideaverse → Garden." }); return; }
+    if (!N.length) { el.createDiv({ cls: "ivg-empty", text: "No notes in the Garden's folders. Pick them in Settings → Exploration Maps → Garden." }); return; }
 
     // the counts double as a filter: click one to see only that stage on the timeline, click it again to see them all
     const counts = el.createDiv({ cls: "ivg-counts" }), chips = [];

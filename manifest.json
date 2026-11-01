@@ -1,10 +1,10 @@
 {
-  "id": "ideaverse-maps",
-  "name": "Maps of the Ideaverse",
+  "id": "exploration-maps",
+  "name": "Exploration Maps",
   "version": "0.8.22",
   "minAppVersion": "1.5.0",
-  "description": "Visualize your notes across a suite of insanely cool interactive maps—Emergence, Ideaverse, Starfield, and many more.",
-  "author": "Nick Milo",
-  "authorUrl": "https://www.linkingyourthinking.com",
+  "description": "Visualize your notes across interactive maps (Emergence, Ideaverse, Starfield and more), with a Garden for growth stages. Based on Nick Milo's Maps of the Ideaverse.",
+  "author": "Paul D (based on Nick Milo's Maps of the Ideaverse)",
+  "authorUrl": "https://github.com/motion2082/exploration-maps",
   "isDesktopOnly": false
 }
