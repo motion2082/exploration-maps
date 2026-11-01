@@ -1,5 +1,6 @@
 import { PluginSettingTab, Setting, TFolder, normalizePath } from "obsidian";
 import { DEFAULTS, dateKeys } from "./scan.js";
+import { GARDEN_DEFAULTS, STAGES } from "./stage.js";
 
 const list = v => String(v || "").split(/[\n,]/).map(s => s.trim()).filter(Boolean).map(s => normalizePath(s)).filter(s => s && s !== "/");
 
@@ -35,7 +36,26 @@ export class MapsSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Rescan").setDesc("Changes here take effect on the next scan. The map also offers a rescan when notes change.")
       .addButton(b => b.setButtonText("Rescan now").setCta().onClick(() => { void p.rescan(); }));
 
+    // Garden: which notes get a growth stage, and the rules for each stage (refreshes the Garden panel as you change them)
+    new Setting(containerEl).setName("Garden").setHeading();
+    const g = () => (s.garden ||= {});
+    const gsave = async () => { await p.saveSettings(); for (const l of this.app.workspace.getLeavesOfType("ideaverse-garden")) void l.view.refresh?.(); };
+    new Setting(containerEl).setName("Folders").setDesc("The notes that get a growth stage (🌱 seedling, 🌿 plant, 🌲 evergreen). One folder per line.").addTextArea(t => t
+      .setPlaceholder("02 Cards").setValue((g().folders || GARDEN_DEFAULTS.folders).join("\n")).onChange(async v => { g().folders = list(v); await gsave(); }));
+    const num = (name, desc, key) => new Setting(containerEl).setName(name).setDesc(desc).addText(t => t
+      .setPlaceholder(String(GARDEN_DEFAULTS[key])).setValue(String(g()[key] ?? GARDEN_DEFAULTS[key]))
+      .onChange(async v => { const n = parseInt(v, 10); if (isFinite(n) && n >= 0) g()[key] = n; else delete g()[key]; await gsave(); }));
+    num(`${STAGES[1]} Plant: words`, "At least this many words (not counting properties or code).", "plantWords");
+    num(`${STAGES[1]} Plant: headings`, "At least this many headings (level 2 and below).", "plantHeadings");
+    num(`${STAGES[1]} Plant: links`, "At least this many links, in and out together.", "plantLinks");
+    num(`${STAGES[2]} Evergreen: words`, "At least this many words.", "evergreenWords");
+    num(`${STAGES[2]} Evergreen: headings`, "At least this many headings (level 2 and below).", "evergreenHeadings");
+    num(`${STAGES[2]} Evergreen: links out`, "Links to other notes, in the text or the up and related properties.", "evergreenOut");
+    num(`${STAGES[2]} Evergreen: links in`, "Other notes that link to it.", "evergreenIn");
+
     new Setting(containerEl).setName("What's on the map").setHeading();
+    new Setting(containerEl).setName("Leave out date notes").setDesc("Daily, weekly, monthly, quarterly and yearly notes (26-10-18, 2026-10-18, 2026-W42, October 2026, Q4 - 2026, 2026). Every note links to them, so on the map they'd float to the top as hubs. Garden doesn't count their links either.")
+      .addToggle(t => t.setValue(s.skipDateNotes !== false).onChange(async v => { s.skipDateNotes = v; await save(); for (const l of this.app.workspace.getLeavesOfType("ideaverse-garden")) void l.view.refresh?.(); }));
     folderList("Leave out", "Folders left off the map entirely (templates, system folders).", "exclude");
     folderOne("Archive folder", "An old archive shown as its own layer. Its links never lift notes outside it.", "archive");
     folderOne("Hidden until picked", "A folder that's on the map but switched off by default, and never scored against the rest (for example, imported learning packs).", "packs");

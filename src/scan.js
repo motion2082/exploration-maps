@@ -36,7 +36,12 @@ function extractArchive(t, isMd){
   const [fm, b0] = isMd ? splitFm(t) : ["", t], b = b0.replace(FENCE, ""), ls = nonEmptyLines(b);
   return { B: links(b), dates: dateFields(fm), w: words(b), kb: kb(t), sf: senseFeatures(fm, b0, ls), density: ls.length ? r3(ls.filter(l => l.includes("[[")).length / ls.length) : 0 }; }
 
+/** A daily, weekly, monthly, quarterly or yearly note, by its name: 2026-10-18, 26-10-18, 2026-W42 (- Weekly Review), 2026-10 (Monthly Review), October 2026, Q4 - 2026, 2026-Q4, 2026. */
+const DATE_NOTE = /^(\d{2}|\d{4})-\d{2}-\d{2}$|^\d{4}-W\d{2}( - Weekly Review)?$|^\d{4}-\d{2}( Monthly Review)?$|^\d{4}(-Q[1-4])?$|^Q[1-4] - \d{4}$|^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/i;
+export const isDateNote = title => DATE_NOTE.test(String(title).trim());
+
 export const DEFAULTS = {
+  skipDateNotes: true,    // daily, weekly, monthly and yearly notes left off the map (every note links to them, so they'd float to the top as hubs)
   exclude: [],            // folders left off the map entirely
   archive: "",            // an archive folder: on the map as its own layer; its links never lift notes outside it
   packs: "",              // a folder on the map but off by default, never scored against the rest (Nick's learning packs)
@@ -133,7 +138,7 @@ export async function scanVault(adapter, settings, onProgress) {
   const skip = [...C.exclude, ARCHIVE].filter(Boolean);
 
   const all = adapter.files.slice().sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  const notes = all.filter(f => f.path.endsWith(".md") && !under(f.path, skip));
+  const notes = all.filter(f => f.path.endsWith(".md") && !under(f.path, skip) && !(C.skipDateNotes && isDateNote(stem(f.path))));
   notes.sort((a, b) => isPack(a.path) - isPack(b.path));   // vault notes win name lookups over pack notes with the same name
   const paths = notes.map(f => f.path), pathSet = new Set(paths);
   const byName = new Map(); for (const p of paths) { const k = stem(p).toLowerCase(); if (!byName.has(k)) byName.set(k, p); }

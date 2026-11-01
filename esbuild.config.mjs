@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from "node:module";
+import { install } from "./install.mjs";
 
 const banner = `/*
 Maps of the Ideaverse, built by esbuild. Source: https://github.com/nickmilo/ideaverse-maps
@@ -20,5 +21,6 @@ const context = await esbuild.context({
   treeShaking: true,
   outfile: "main.js",
   minify: prod,
+  plugins: [install],
 });
 if (prod) { await context.rebuild(); process.exit(0); } else { await context.watch(); }

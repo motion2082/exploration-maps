@@ -3470,7 +3470,7 @@ function labels(lit){
   if (view === "chord" && !lit && k < 2) return;   // the ring is named by its kinds; note names show for the note you're on and its links, or once zoomed in
   const nv = NVIS;
   // in focus, or with a filter that leaves few notes, name the low levels too
-  let minLv = ((focus >= 0 || NARROW) && nv <= 400) ? 1 : k >= 9 ? 1 : k >= 5 ? 2 : k >= 2.2 ? 3 : k >= 1.25 ? 4 : 5; if (NARROW && nv <= 2000) minLv = Math.min(minLv, 2);
+  let minLv = ((focus >= 0 || NARROW) && nv <= 400) ? 1 : k >= 2.5 ? 1 : k >= 1.6 ? 2 : k >= 1.1 ? 3 : 4; if (NARROW && nv <= 2000) minLv = Math.min(minLv, 2);   // names show with far less zooming than they used to (collisions still keep it calm)
   let curI = -1; const taken = []; const fits = (x,y,w,h) => { for (const t of taken) if (x < t[0]+t[2] && x+w > t[0] && y < t[1]+t[3] && y+h > t[1]) return false; return fitsFor(curI, x, y, w, h); };
   ctx.textBaseline = "middle";
   const must = [];
@@ -3489,10 +3489,11 @@ function labels(lit){
     if (!isMust && N[i].level < minLv) continue;
     if (!isMust && expOn() && EXP[view].ownLabels) continue;   // these maps name things their own way; titles show for the note you're on and its links
     if (!isMust && view === "stars" && COREB[i] >= 0 && BODIES[COREB[i]].r*k <= Math.min(W, H)*.8) continue;   // the galaxy's own label names it
+    if (!isMust && view === "stars" && N[i].level < 3 && k < 3) continue;   // Starfield: only maps and hubs are named until you zoom in, so the sky isn't a wall of text
     if (!isMust && lit && !lit.has(i) && !(focus >= 0 && dim_ok())) continue;
     const x = sx(X[i]), y = sy(Y[i]); if (x < -200 || x > W+20 || y < -20 || y > H+20) continue;
     const big = N[i].level >= 4 || i === sel;
-    ctx.font = `${big ? 600 : 500} ${big ? 12.5 : 11.5}px ${css.body}`;
+    ctx.font = `${big ? 600 : 500} ${big ? 13.5 : 12.5}px ${css.body}`;
     const t = N[i].title.length > 46 ? N[i].title.slice(0,45)+"…" : N[i].title;
     const w = ctx.measureText(t).width, r = rad(i), h = 15, edge = W - sideW() - 6;
     // a name starts at its dot; if that's taken (or past the right edge), it ends at its dot instead; if both are taken it waits for more zoom (the note you're on and the one under the pointer always show)
@@ -3504,7 +3505,7 @@ function labels(lit){
     // only the names that must show (the note you're on, the one under the pointer, its links) go looking for room; the rest keep their spot or wait for more zoom, so a crowded map stays calm
     // maps and hubs (Level 3 and up) may flip or tilt to find room; Level 1 and 2 names only take their usual spot, and only a handful of them (a little serendipity), unless you're zoomed well in
     const lowLv = N[i].level < 3;
-    if (!isMust && lowLv && (!fits(first-2, y-h/2, w+4, h) || (k < 5 && lowN >= 12))) continue;
+    if (!isMust && lowLv && (!fits(first-2, y-h/2, w+4, h) || (k < 2.5 && lowN >= 80))) continue;
     const sides = [[first, first === R_], ...(otherOK ? [[other, other === R_]] : [])];
     let place = null;
     for (const [px0, right] of sides) if (!place && fits(px0-2, y-h/2, w+4, h)) place = { lx: px0, ly: y };
@@ -3514,7 +3515,7 @@ function labels(lit){
     if (!place && !isMust) continue;
     if (!place) for (const [px0] of sides) for (const oy of [-dy, dy]) if (!place && fits(px0-2, y+oy-h/2, w+4, h) && y+oy > 8 && y+oy < H-8) place = { lx: px0, ly: y + oy };
     if (!place) { if (!(i === sel || i === hover)) continue; place = { lx: first, ly: y }; }
-    ctx.lineWidth = 4; ctx.strokeStyle = css.bg; ctx.lineJoin = "round"; ctx.fillStyle = css.ink;
+    ctx.lineWidth = 4; ctx.strokeStyle = css.bg; ctx.lineJoin = "round"; ctx.fillStyle = view === "stars" && !isMust && !big ? css.muted : css.ink;   // Starfield: background names dimmed
     if (place.a != null) { const { piv, a, right, bx } = place; for (const b_ of bx) taken.push(b_);
       const xs = bx.map(b_ => b_[0]), ys = bx.map(b_ => b_[1]); LH.push([Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs) + w/4 + 2, Math.max(...ys) - Math.min(...ys) + h, i]);
       ctx.save(); ctx.translate(piv, y); ctx.rotate(a); const ox = right ? 0 : -w; ctx.strokeText(t, ox, 0); ctx.fillText(t, ox, 0); ctx.restore(); }
@@ -3778,7 +3779,7 @@ function select(i, fromTrail){
     <h2>${esc(d.title)}</h2><div class="path">${esc(d.path)}${d.date ? " · " + esc(d.date) : ""}</div>
     <div class="lvl">Level ${d.level} · ${esc(LV[d.level].name)}</div>${axisValue(d) ? `<div class="lvl axv">${esc(axisValue(d))}</div>` : ""}${d.archive ? `<div class="lvl" style="margin-left:6px">Archive</div>` : ""}${view === "arc" ? `<div class="lvl axv" title="${esc(ARW[i])}">ARC · ${ARC_L[ARS[i]].name} · ${esc(ARW[i])}</div>` : ""}${view === "chord" ? `<div class="lvl axv">◯ ${esc(CHCAT[CHC[i]].short)}</div>` : ""}${view === "stars" && BOD[i] >= 0 ? `<div class="lvl axv">✦ ${esc(bodyLabel(i))}</div>` : ""}
     <div class="nums"><div><b>${d.body_in}</b><span>linked from</span></div><div><b>${d.body_out}</b><span>links to</span></div><div><b>${d.up_in}</b><span>link up to it</span></div><div><b>${d.score.toFixed(1)}</b><span>link score</span></div></div>
-    ${whyBox(i)}<button class="open" id="dopen" title="Open the note (Cmd/Ctrl-click: in a new tab in the left sidebar)">Open note</button><button class="focusbtn" id="dfocus">${focus === i ? "Exit focus" : "Focus on its links"}</button>
+    ${whyBox(i)}<button class="open" id="dopen" title="Open the note in a new tab">Open note</button><button class="focusbtn" id="dfocus">${focus === i ? "Exit focus" : "Focus on its links"}</button>
     ${upl.length || rel.length || prop.length ? `<div class="lgrp" title="Links written in the frontmatter">Properties</div>` : ""}
     ${upl.length ? `<h5><i style="border-color:var(--upp)"></i>Uplinks · ${upl.length}</h5>${noteList(upl)}` : ""}
     ${rel.length ? `<h5><i style="border-color:var(--rel)"></i>Related · ${rel.length}</h5>${noteList(rel)}` : ""}
@@ -3791,7 +3792,7 @@ function select(i, fromTrail){
   if (opening) { const px_ = sx(X[i]), py_ = sy(Y[i]); ANCHOR_T = performance.now() + 700; resize(); if (!morphing) { tx += px_ - sx(X[i]); ty += py_ - sy(Y[i]); draw(); keepInView(i); } }   // the panel opening leaves the note where you clicked it (slid only if the panel would cover it)
   $("#dx").onclick = () => select(-1);
   $("#dcol").onclick = () => setCollapsed(true);
-  $("#dopen").onclick = e => host.openNote(d.path, e.metaKey || e.ctrlKey);
+  $("#dopen").onclick = () => host.openNote(d.path, true);
   $("#dfocus").onclick = () => { focusArmed = false; setFocus(focus === i ? -1 : i); };
   drawer.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { navTo(+b.dataset.go); toEditor(+b.dataset.go); });
   renderTrail(); draw();

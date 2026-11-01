@@ -1,5 +1,6 @@
 import { Plugin, TFile, normalizePath } from "obsidian";
 import { MapView, VIEW_TYPE } from "./view.js";
+import { GardenView, GARDEN_VIEW } from "./garden.js";
 import { registerBases } from "./bases.js";
 import { MapsSettingTab, detectDefaults } from "./settings.js";
 import { DEFAULTS, EXTRACT_VERSION, scanVault } from "./scan.js";
@@ -21,6 +22,10 @@ export default class IdeaverseMapsPlugin extends Plugin {
       if (!checking) for (const v of maps) v.map.toggleFollow();
       return true; } });
     this.addCommand({ id: "rescan", name: "Rescan the vault", callback: () => { void this.rescan(); } });
+    // Garden: the 🌱 → 🌿 → 🌲 growth stages, in a tab in the middle
+    this.registerView(GARDEN_VIEW, leaf => new GardenView(leaf, this));
+    this.addRibbonIcon("sprout", "Open Garden", () => { void this.openGarden(); });
+    this.addCommand({ id: "garden", name: "Open Garden", callback: () => { void this.openGarden(); } });
     this.addSettingTab(new MapsSettingTab(this.app, this));
     registerBases(this);   // the map as a view inside any base (Obsidian 1.10+)
 
@@ -75,6 +80,15 @@ export default class IdeaverseMapsPlugin extends Plugin {
     const leaf = existing || this.app.workspace.getLeaf("tab");
     if (!existing) await leaf.setViewState({ type: VIEW_TYPE, active: true });
     await this.app.workspace.revealLeaf(leaf);
+  }
+
+  async openGarden() {
+    const ws = this.app.workspace;
+    let existing = ws.getLeavesOfType(GARDEN_VIEW)[0];
+    if (existing && existing.getRoot() !== ws.rootSplit) { existing.detach(); existing = null; }   // one left in a sidebar by an older version moves to the middle
+    const leaf = existing || ws.getLeaf("tab");
+    if (!existing) await leaf.setViewState({ type: GARDEN_VIEW, active: true });
+    await ws.revealLeaf(leaf);
   }
 
   async rescan() {

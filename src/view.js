@@ -76,7 +76,7 @@ export function openBeside(app, ownLeaf, noteLeaf, path, newTab, background) {
   const shown = l => { const el = l.view && l.view.containerEl; return !!el && el.isConnected && el.offsetParent !== null; };
   const beside = l => l !== ownLeaf && (!ownLeaf || l.parent !== ownLeaf.parent) && shown(l);
   let leaf = notes.includes(noteLeaf) && beside(noteLeaf) ? noteLeaf : notes.find(beside);
-  if (newTab) leaf = ws.getLeftLeaf(false) || ws.getLeaf("tab");   // ⌘-click: a new tab in the left sidebar, so the map stays in view
+  if (newTab && leaf) leaf = ws.createLeafInParent(leaf.parent, leaf.parent.children.indexOf(leaf) + 1);   // ⌘-click: a new tab beside the note pane, so the map stays in view
   else if (!leaf) leaf = ws.getLeaf("split", "vertical");
   if (background && leaf.view && leaf.view.file === file) return newTab ? noteLeaf : leaf;   // already showing it
   void leaf.openFile(file, background ? { active: false } : undefined);   // in the background the map keeps focus
