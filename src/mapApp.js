@@ -14,7 +14,7 @@ let dead = false;
 const frames = new Set();
 const RAF = f => { const id = win.requestAnimationFrame(t => { frames.delete(id); if (!dead) f(t); }); frames.add(id); return id; };
 const on = (target, type, fn, opts) => host.registerDomEvent(target, type, fn, opts);
-const onKey = fn => on(doc, "keydown", e => { if (!dead && host.isActive() && (!doc.activeElement || doc.activeElement === doc.body || root.contains(doc.activeElement))) fn(e); });
+const onKey = fn => on(doc, "keydown", e => { if (!dead && host.isActive() && (!doc.activeElement || doc.activeElement === doc.body || root.contains(doc.activeElement)) && !(doc.activeElement && doc.activeElement.closest && doc.activeElement.closest(".ivm-card"))) fn(e); });
 // HTML built from note titles and numbers goes through Obsidian's sanitizer (titles are also escaped with esc())
 const html = el => ({ set v(h) { el.empty(); el.append(sanitizeHTMLToDom(h)); } });
 const PACKS0 = (D.settings && D.settings.packs) || "";
@@ -739,15 +739,17 @@ function starsBg(){
   ctx.globalAlpha = 1;
   colorStars();
   const bgDim = (sel >= 0 ? .22 : focus >= 0 ? .7 : 1)*GLOWF();   // a selected note dims the galaxies so its links read clearly
-  if (S3D) { halos3D(bgDim); if (chx("gas")) chartGas(bgDim); return; }
+  if (S3D) { halos3D(bgDim); if (chx("gas")) chartGas(bgDim); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; galNames(); return; }
   buildGlow();
   ctx.globalCompositeOperation = "lighter";
   for (let a = bgDim; a > .001; a -= 1) { ctx.globalAlpha = Math.min(1, a); ctx.drawImage(GLOW, sx(UB.x0), sy(UB.y0), (UB.x1 - UB.x0)*k, (UB.y1 - UB.y0)*k); }
   const wf = Math.max(0, Math.min(1, (.7 - k)/.45));   // the cosmic web fades out as you zoom into a galaxy
   if (wf > 0 && showAll) { ctx.globalAlpha = wf*bgDim; ctx.drawImage(WEB, sx(UB.x0), sy(UB.y0), (UB.x1 - UB.x0)*k, (UB.y1 - UB.y0)*k); }
   if (chx("gas")) chartGas(bgDim);
-  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; galNames();
 }
+// Starfield: galaxy names sit behind everything but the Linking Your Thinking mark (0.8.19, Nick): drawn with the sky, before links, stars and note names
+const galNames = () => { if (view !== "stars" || expOn() || domeOn()) return; LH = []; ctx.save(); starLabels(); ctx.restore(); };
 function starsNotes(lit, dim){
   const vx0 = -30, vx1 = W+30, vy0 = -30, vy1 = H+30, bins = new Map(), bright = [];
   for (let i=0;i<n;i++) { if (!VV(i)) continue; const x = sx(X[i]), y = sy(Y[i]); if (x<vx0||x>vx1||y<vy0||y>vy1) continue;
@@ -778,7 +780,7 @@ function starsNotes(lit, dim){
 }
 const galLabelOn = b => { const rr = b.r*k; return rr >= 16 && rr <= Math.min(W, H)*.8; };
 function starLabels(){
-  ctx.globalAlpha = sel >= 0 ? .5 : 1;   // galaxy names step back while a note is selected
+  ctx.globalAlpha = sel >= 0 ? .38 : 1;   // galaxy names step back while a note is selected
   ctx.textAlign = "center"; ctx.textBaseline = "top";
   const hasLS = "letterSpacing" in ctx, taken = [];
   for (const b of [...BODIES].sort((p,q2) => q2.r - p.r)) {
@@ -1115,7 +1117,7 @@ function morph(animate, cam){
   RAF(step);
 }
 let camBusy = 0;
-function setView(v){ win.setTimeout(() => { if (typeof syncFZ === "function") syncFZ(); }, 0);
+function setView(v){ win.setTimeout(() => { if (typeof syncFZ === "function") syncFZ(); if (EDS) void openMain(sel); }, 0);
   if (v === view) return;
   if (view === "chord") { chPin = -1; chArc = -1; tip.hidden = true; tip.classList.remove("arc"); }
   if (senseT != null) { senseStop(); unfreeze(false); senseT = null; POP.fill(0); popEnd = 0; $("#tldate").textContent = "All time"; }
@@ -3031,7 +3033,8 @@ function fitTarget(){ const f = fitTarget0(); if (!CAPFIT) return f; const a = c
   return { k: f.k * s_, tx: cx - (cx - f.tx) * s_, ty: cy - (cy - f.ty) * s_ }; }
 // the room the open Legend and Animations dock take on the left (desktop); tucked away, just their tabs. Fit all used to keep 400 px free
 // whatever was open, leaving Ideaverse, Obsidian, Treemap, Mosaic and the rest small and pushed right
-function leftCol(){ if (isPhone()) return 0; const c = cv.getBoundingClientRect(); let r = 40;
+let EDLW = 0;   // the left editor's width, when it's open
+function leftCol(){ if (isPhone()) return 0; if (EDLW) return EDLW; const c = cv.getBoundingClientRect(); let r = 40;
   for (const el of [$("#legend"), $("#animdock")]) { if (!el || el.hidden || el.classList.contains("collapsed")) continue; const b = el.getBoundingClientRect(); if (b.width > 0) r = Math.max(r, b.right - c.left + 12); }
   return Math.min(r, 400); }
 function fitTarget0(){ const pad = 56;
@@ -3316,6 +3319,8 @@ function render(){
   if (emoView()) drawEmojis(lit, dim);
   if (chartOn()) drawChart();
   drawMini();   // Starfield's overview map, bottom right
+  for (const o of Object.values(EDS)) o.place();
+  drawPreviews();
 
   orbWake();   // Star Chart's turning orbits run on their own layer (starts or stops it)
   if (!(CAP.on && CAP.hide)) labels(lit);
@@ -3502,8 +3507,8 @@ function shape(lv, x, y, r){
 const order = [...N.keys()].sort((a,b) => (N[b].level - N[a].level) || (N[b].score - N[a].score));
 const dim_ok = () => (sel === focus || sel < 0) && hover < 0;
 let LH = [];   // where labels were drawn last frame: [x, y, w, h, note], so a click on the text works like a click on the dot
-function labels(lit){
-  LH = [];
+function labels(lit){ let PICKDRAW = null;   // the picked note's name is drawn again last, so nothing covers it
+  LH = view === "stars" ? LH.filter(q => q[5] != null) : [];   // Starfield's galaxy names were placed earlier, with the sky
   if (view === "chord" && !lit && k < 2) return;   // the ring is named by its kinds; note names show for the note you're on and its links, or once zoomed in
   const nv = NVIS;
   // in focus, or with a filter that leaves few notes, name the low levels too
@@ -3559,18 +3564,19 @@ function labels(lit){
     if (pick_) { ctx.fillStyle = view === "stars" ? "hsl(58,86%,66%)" : css.accent || css.ink; /* Starfield: LYT Mode's yellow */ ctx.lineWidth = 5; }
     if (place.a != null) { const { piv, a, right, bx } = place; for (const b_ of bx) taken.push(b_);
       const xs = bx.map(b_ => b_[0]), ys = bx.map(b_ => b_[1]); LH.push([Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs) + w/4 + 2, Math.max(...ys) - Math.min(...ys) + h, i]);
-      ctx.save(); ctx.translate(piv, y); ctx.rotate(a); const ox = right ? 0 : -w; ctx.strokeText(t, ox, 0); ctx.fillText(t, ox, 0); ctx.restore(); }
-    else { const { lx, ly } = place; taken.push([lx-2, ly-h/2, w+4, h]); LH.push([lx-2, ly-h/2, w+4, h, i]); ctx.strokeText(t, lx, ly); ctx.fillText(t, lx, ly); }
+      const dr = () => { ctx.save(); ctx.translate(piv, y); ctx.rotate(a); const ox = right ? 0 : -w; ctx.strokeText(t, ox, 0); ctx.fillText(t, ox, 0); ctx.restore(); }; dr(); if (pick_) PICKDRAW = [dr, ctx.font, ctx.fillStyle, ctx.lineWidth]; }
+    else { const { lx, ly } = place; taken.push([lx-2, ly-h/2, w+4, h]); LH.push([lx-2, ly-h/2, w+4, h, i]); const dr = () => { ctx.strokeText(t, lx, ly); ctx.fillText(t, lx, ly); }; dr(); if (pick_) PICKDRAW = [dr, ctx.font, ctx.fillStyle, ctx.lineWidth]; }
     if (!isMust && lowLv) lowN++;
     if (++count > 260) break;
   }
+  if (PICKDRAW) { const [dr, f, fs, lw] = PICKDRAW; ctx.globalAlpha = 1; ctx.font = f; ctx.fillStyle = fs; ctx.lineWidth = lw; ctx.strokeStyle = css.bg; ctx.lineJoin = "round"; dr(); }
   ctx.globalAlpha = 1;
 }
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function axisLabels(){
   if (expOn()) { if (EXP[view].labels) EXP[view].labels(); if (GRV()) drawPops(); return; }   // the Obsidian map's Timelapse: comets, rain or swirls, as on Starfield
   if (domeOn()) { domeLabels(); return; }
-  if (view === "stars") { starLabels(); drawPops(); return; }
+  if (view === "stars") { drawPops(); return; }   // galaxy names are drawn before the note names (render), so they sit behind them
   if (view === "sense") { senseLabels(); return; }
   if (view === "gravity") { gravityLabels(); return; }
   if (csphOn()) { csLabels(); return; }
@@ -3732,6 +3738,7 @@ const end = e => { pts.delete(e.pointerId);
     const a = chordArcAt(e.offsetX, e.offsetY); chPin = a >= 0 && a !== chPin ? a : -1; draw(); if (chPin >= 0) showArcTip(chPin); else { tip.hidden = true; tip.classList.remove("arc"); } if (a >= 0) { cv.classList.remove("drag"); drag = null; return; } }
   if (pts.size === 0) { cv.classList.remove("drag"); if (drag && drag.orbit && moved) { buildGrid(); if (geo3On()) g3Keep(); else if (sphOn()) csKeep(); else if (domeOn()) domeKeep(); else save("iv-cam3", [yaw3, pitch3]); } if (drag && !moved && drag.btn !== 2) { const i = pick(e.offsetX, e.offsetY); if (pplOn() && pplClick(i, e.offsetX, e.offsetY)) { drag = null; return; }
     { const h = chartPostAt(e.offsetX, e.offsetY); if (h >= 0) { if (focus >= 0 || focusArmed) navTo(h); else { select(h); if (!S3D) flyTo(h, true); } drag = null; return; } }   // in Focus, the signpost's note becomes the focus, with all its links   // Star Chart: a signpost takes you to its hub
+  if (i >= 0 && edOn() && (Platform.isMacOS ? e.metaKey : e.ctrlKey)) { void EDS.right.open(i); drag = null; return; }   // Edit mode: ⌘-click opens the note in the right-hand editor, Roam-style
   if (i >= 0 && host.openNote && (Platform.isMacOS ? e.metaKey : e.ctrlKey)) { select(i); host.openNote(N[i].path, true); drag = null; return; }   // ⌘-click (Ctrl-click on Windows and Linux): the note opens in a new tab, as in Obsidian
   if (i >= 0 && (focus >= 0 || focusArmed)) navTo(i); else { select(i); if (i >= 0 && (Platform.isMobile || (view === "stars" && LH.some(q => q[5] != null && q[4] === i && e.offsetX >= q[0] && e.offsetX <= q[0] + q[2] && e.offsetY >= q[1] && e.offsetY <= q[1] + q[3])))) flyTo(i, true); else if (i >= 0) nudgeTo(i); } toEditor(i); } drag = null; } };   // Starfield: a galaxy's name flies you into it
 cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
@@ -3810,7 +3817,65 @@ function renderTrail(){
   el.scrollLeft = 0;
   addTrailGrip(el);
 }
+// ---------- Edit mode (experimental, the road to 1.0): edit notes right on the map ----------
+// Three editors, each a real Obsidian editor (host.editCard): the main one, in a card under the picked note (the centre) or on the left side;
+// and a Roam-style one on the right for any note you ⌘-click. One theme and one opacity for all three. Starfield first, Emergence as the stress test.
+let EDITM = pref("iv-editm", false) === true, EDLEFT = pref("iv-edleft", false) === true, HUBPV = pref("iv-hubpv", false) === true;
+const CARDMAPS = new Set(["stars", "emergence", "spacetime"]);
+const edOn = () => EDITM && CARDMAPS.has(view) && !!host.editCard && !isPhone() && !S3D_ON();
+let CARDTH = pref("iv-cardth", "obsidian"), CARDOP = +pref("iv-cardop", 84) || 84;   // the editors' theme: Obsidian's, or the map's (dark or light); their opacity, %
+// Editor theme → Map: Obsidian works out its colors once, on the page body (--background-primary: var(--color-base-00)…), so a dark or light
+// class alone changes nothing; each editor re-declares those body colors itself, so they resolve with its own dark or light base colors
+let BODYV = null;
+const bodyVars = () => { if (BODYV) return BODYV; BODYV = {}; for (const sh of [...doc.styleSheets]) { let rs; try { rs = sh.cssRules; } catch { continue; }
+    for (const r of [...rs]) { if (!r.style || !/^(body|\.theme-light, ?\.theme-dark|\.theme-dark, ?\.theme-light)$/.test(r.selectorText || "")) continue;
+      for (const nm of [...r.style]) if (nm.startsWith("--")) { const v = r.style.getPropertyValue(nm).trim(); if (v.includes("var(")) BODYV[nm] = v; } } }
+  return BODYV; };
+function edLook(el){ const th = root.dataset.theme, dark = th === "lyt" || th === "dark" || (th === "obsidian" && doc.body.classList.contains("theme-dark")), m = CARDTH === "map";
+  el.classList.toggle("theme-dark", m && dark); el.classList.toggle("theme-light", m && !dark);
+  const bv = bodyVars(); el.setCssProps(Object.fromEntries(Object.keys(bv).map(nm => [nm, m ? bv[nm] : ""]))); el.setCssProps({ "--cardop": CARDOP + "%" }); }
+const clampN = (v, a, b) => Math.round(Math.max(a, Math.min(b, v)));
+function edRect(kind){ const vw = W - sideW();
+  if (kind === "left") { const w = clampN(vw*.34, 340, 560); return { x: 8, y: 8, w, h: H - 16 }; }
+  if (kind === "right") { const w = clampN(vw*.3, 320, 520); return { x: vw - w - 8, y: 8, w, h: H - 16 }; }
+  const R = EDS && !EDS.right.el.hidden ? edRect("right").x - 8 : vw, L = EDS && !EDS.left.el.hidden ? edRect("left").x + edRect("left").w + 8 : 0;   // the centre card sits between the side editors
+  const fw = R - L, cw = clampN(fw*.42, 360, 640), y = Math.round(H*.33); return { x: Math.round(L + (fw - cw)/2), y, w: cw, h: H - y - 12 }; }
+function makeEd(kind){
+  const el = doc.createElement("div"); el.className = "ivm-card ivm-card-" + kind; el.hidden = true; root.after(el);
+  const hd = el.createDiv({ cls: "cardhd" }), t = hd.createSpan({ cls: "cardt" }), ob = hd.createEl("button", { cls: "cardbtn", text: "Open in editor", attr: { type: "button" } }), xb = hd.createEl("button", { cls: "cardbtn cardx", text: "×", attr: { type: "button", "aria-description": "Close" } });
+  const body = el.createDiv({ cls: "cardbody" });
+  for (const ty of ["pointerdown", "wheel", "click"]) el.addEventListener(ty, e => e.stopPropagation());
+  const o = { kind, el, ed: null, path: null, key: "",
+    place(){ if (el.hidden) return; const r = edRect(kind), c = cv.getBoundingClientRect(), pr = (el.offsetParent || el.parentElement).getBoundingClientRect(), key = [r.x, r.y, r.w, r.h, c.left - pr.left, c.top - pr.top].join(); if (key === o.key) return; o.key = key;
+      el.style.left = (c.left - pr.left + r.x) + "px"; el.style.top = (c.top - pr.top + r.y) + "px"; el.style.width = r.w + "px"; el.style.height = r.h + "px"; if (o.ed) o.ed.resize(); },
+    close(){ if (!o.ed && el.hidden) return; el.hidden = true; o.path = null; o.key = ""; if (o.ed) { o.ed.close(); o.ed = null; } edFree(); },
+    async open(i){ const p = N[i].path; if (!o.ed) { o.ed = host.editCard(); body.appendChild(o.ed.el); }
+      t.setText(N[i].title); edLook(el); const was = el.hidden; el.hidden = false; o.key = ""; o.place(); if (was) edFree();
+      if (o.path !== p) { o.path = p; await o.ed.open(p); o.ed.resize(); } } };
+  xb.onclick = () => o.close(); ob.onclick = () => { if (o.path && host.openNote) host.openNote(o.path); };
+  return o; }
+let EDS = null; EDS = { center: makeEd("center"), left: makeEd("left"), right: makeEd("right") };
+const edMain = () => EDLEFT ? EDS.left : EDS.center;
+function edFree(){ EDLW = !EDS.left.el.hidden ? edRect("left").x + edRect("left").w + 12 : 0; for (const o of Object.values(EDS)) { o.key = ""; o.place(); } }
+function closeEds(){ for (const o of Object.values(EDS)) o.close(); }
+async function openMain(i){ if (!edOn() || i < 0 || !vis[i]) { EDS.center.close(); EDS.left.close(); if (!edOn()) EDS.right.close(); return; }
+  const m = edMain(); (m === EDS.left ? EDS.center : EDS.left).close(); const p = m.open(i);
+  if (m === EDS.center) { const r = edRect("center"); animateTo({ k, tx: r.x + r.w/2 - X[i]*k, ty: Math.round(H*.17) - Y[i]*k }); }   // the note above the card, in the top third
+  else { const L = edRect("left").x + edRect("left").w, R = EDS.right.el.hidden ? W - sideW() : edRect("right").x; animateTo({ k, tx: (L + R)/2 - X[i]*k, ty: H/2 - Y[i]*k }); }   // the note in the free middle
+  await p; }
+// Starfield: a small read-only preview of each galaxy's hub note, above it
+const pvLayer = doc.createElement("div"); pvLayer.className = "ivm-pvl"; root.after(pvLayer); const HPV = new Map();
+function drawPreviews(){ const on = EDITM && HUBPV && view === "stars" && !S3D_ON() && !!host.preview && W > 0;
+  if (!on) { if (pvLayer.childElementCount) { pvLayer.empty(); HPV.clear(); } return; }
+  const c = cv.getBoundingClientRect(), pr = pvLayer.getBoundingClientRect(), ox = c.left - pr.left, oy = c.top - pr.top, want = new Set();
+  const gals = BODIES.filter(b => b.kind === "gal" && b.core != null && vis[b.core] && b.core !== sel).map(b => ({ b, i: b.core, rr: b.r*k, x: sx(X[b.core]), y: sy(Y[b.core]) }))
+    .filter(g => g.rr >= 55 && g.x > 60 && g.x < W - sideW() - 60 && g.y > 120 && g.y < H - 20).sort((a, b) => b.rr - a.rr).slice(0, 10);
+  for (const g of gals) { const p = N[g.i].path; want.add(p); let e = HPV.get(p);
+    if (!e) { e = pvLayer.createDiv({ cls: "ivm-card ivm-pv" }); e.createDiv({ cls: "pvt", text: N[g.i].title }); const b_ = e.createDiv({ cls: "pvb markdown-rendered" }); void host.preview(p, b_); HPV.set(p, e); }
+    edLook(e); const w = 210, h = 128; e.style.left = Math.round(ox + g.x - w/2) + "px"; e.style.top = Math.round(oy + g.y - h - 22) + "px"; }
+  for (const [p, e] of HPV) if (!want.has(p)) { e.remove(); HPV.delete(p); } }
 function select(i, fromTrail){
+  if (EDITM || (EDS && (!EDS.center.el.hidden || !EDS.left.el.hidden))) win.setTimeout(() => { void openMain(sel); }, 0);
   if (BQCTX && i >= 0 && i !== sel) win.setTimeout(() => { void applyBQ(); }, 120);   // a base view that follows the picked note: refilter for the new one
   if (i >= 0 && sensePlaying) tlWander();   // clicking a note while the timeline plays stops it, so you can wander
   if (rec && i >= 0 && rec.notes[rec.notes.length - 1] !== N[i].path) { rec.notes.push(N[i].path); syncRec(); }   // recording a tour
@@ -5428,6 +5493,18 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
   vgCb.checked = VGRID; vgCb.onchange = () => { VGRID = vgCb.checked; save("iv-vgrid", VGRID); syncTB(); };
   const alSw = DI.p.createEl("label", { cls: "pmaps drow", attr: { "aria-label": "Draw every link on the map, faintly" } }); const alCb = alSw.createEl("input", { type: "checkbox" }); alSw.createEl("i", { cls: "sw" }); alSw.createSpan({ text: "Show all links" });
   alCb.onchange = () => { if (alCb.checked !== showAll) $("#alllinks").click(); };
+  { const l = DI.p.createEl("label", { cls: "pmaps drow editm" }); const cb = l.createEl("input", { type: "checkbox" }); cb.checked = EDITM; l.createEl("i", { cls: "sw" }); l.createSpan({ text: "Edit mode (experimental)" });
+    const g = DI.p.createDiv({ cls: "editopts" }); g.hidden = !EDITM;
+    const tr = g.createDiv({ cls: "eorow" }); tr.createSpan({ cls: "eol", text: "Editor theme" }); const seg = tr.createDiv({ cls: "seg" });
+    for (const [v, t] of [["obsidian", "Obsidian"], ["map", "Map"]]) { const b = seg.createEl("button", { text: t, attr: { type: "button", "aria-pressed": String(CARDTH === v) } });
+      b.onclick = e => { e.stopPropagation(); CARDTH = v; save("iv-cardth", v); seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); for (const o of Object.values(EDS)) edLook(o.el); for (const e_ of HPV.values()) edLook(e_); }; }
+    const or_ = g.createEl("label", { cls: "eorow" }); or_.createSpan({ cls: "eol", text: "Opacity" }); const sl = or_.createEl("input", { type: "range", attr: { min: "50", max: "100", step: "1" } }); sl.value = String(CARDOP); const ov = or_.createSpan({ cls: "eov", text: CARDOP + "%" });
+    sl.oninput = () => { CARDOP = +sl.value; ov.setText(CARDOP + "%"); for (const o of Object.values(EDS)) edLook(o.el); for (const e_ of HPV.values()) edLook(e_); }; sl.onchange = () => save("iv-cardop", CARDOP); sl.onclick = e => e.stopPropagation();
+    const sw = (txt, get, set) => { const l_ = g.createEl("label", { cls: "mini lcemo eosw" }); const c_ = l_.createEl("input", { type: "checkbox" }); c_.checked = get(); l_.createEl("i", { cls: "sw" }); l_.createSpan({ text: txt }); c_.onchange = () => set(c_.checked); };
+    sw("Open the editor on the left side", () => EDLEFT, v => { EDLEFT = v; save("iv-edleft", v); if (sel >= 0) void openMain(sel); });
+    sw("Hub previews (Starfield)", () => HUBPV, v => { HUBPV = v; save("iv-hubpv", v); draw(); });
+    g.createDiv({ cls: "eonote", text: "⌘-click a note to open it in a second editor on the right." });
+    cb.onchange = () => { EDITM = cb.checked; save("iv-editm", EDITM); g.hidden = !EDITM; if (EDITM && sel >= 0) void openMain(sel); else closeEds(); draw(); }; }
   { const l = DI.p.createEl("label", { cls: "pmaps drow sflinks" }); const cb = l.createEl("input", { type: "checkbox" }); cb.checked = SFLINKS; l.createEl("i", { cls: "sw" }); l.createSpan({ text: "Starfield link colors" });
     cb.onchange = () => { SFLINKS = cb.checked; save("iv-sflinks", SFLINKS); readCss(); legend(); if (sel >= 0) select(sel, true); draw(); }; }
   // Show the way home (Kevin Bacon): from the note you're on, the fewest links back to Home, or to a note you choose
@@ -5773,7 +5850,7 @@ let scopeSig = null, baseSig = null, baseDirty = false;
 if (following) win.setTimeout(() => followPath(host.activePath && host.activePath(), true), 400);   // opened while following: start on the active note
 
 return {
-  destroy(){ dead = true; ro.disconnect(); popObs.disconnect(); for (const id of frames) win.cancelAnimationFrame(id); frames.clear();
+  destroy(){ dead = true; closeEds(); for (const o of Object.values(EDS)) o.el.remove(); pvLayer.remove(); ro.disconnect(); popObs.disconnect(); for (const id of frames) win.cancelAnimationFrame(id); frames.clear();
     win.clearTimeout(senseTimer); win.clearTimeout(pTimer); driftStop(); tip.remove(); },
   openNote(path){ const i = PIDX.get(path); if (i != null) navTo(i); },
   follow(path){ followPath(path); },

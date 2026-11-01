@@ -1357,3 +1357,42 @@ button.ivg-count.is-on { background: var(--interactive-accent); color: var(--tex
 body:not(.is-mobile) .ivm main.has-drawer .zoom{right:calc(min(var(--pw,420px),100%) + 14px);bottom:42px}
 /* Starfield: the Linking Your Thinking mark sits halfway to the left (at a quarter of the width), clear of the galaxies below the middle (0.8.14, Nick) */
 .ivm[data-view="stars"] .wm-lyt{left:25%}
+
+/* Edit mode (experimental): the card under the picked note, holding a real Obsidian editor. It sits on the page, outside the map's styles,
+   so the editor looks like Obsidian (or, with Editor theme → Map, like Obsidian in the map's dark or light) */
+.ivm-card{position:absolute;z-index:3;display:flex;flex-direction:column;background:color-mix(in srgb,var(--background-primary) var(--cardop,84%),transparent);color:var(--text-normal);border:1px solid var(--background-modifier-border);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.35);overflow:hidden;backdrop-filter:blur(2px)}
+.ivm-card[hidden]{display:none}
+.ivm-card .cardhd{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px;border-bottom:1px solid var(--background-modifier-border);flex:none}
+.ivm-card .cardt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12.5px;color:var(--text-normal)}
+.ivm-card.ivm-card .cardbtn{border:1px solid var(--background-modifier-border);background:transparent;box-shadow:none;height:24px;padding:0 8px;border-radius:6px;font-size:11.5px;color:var(--text-muted);cursor:pointer}
+.ivm-card.ivm-card .cardbtn:hover{color:var(--text-normal)}
+.ivm-card.ivm-card .cardx{width:24px;padding:0;font-size:15px}
+.ivm-card .cardbody{flex:1;min-height:0;position:relative;--background-primary:transparent;--background-primary-alt:transparent}
+.ivm-card .cardbody > .workspace-split{position:absolute;inset:0;display:flex;background:transparent}
+.ivm-card .cardbody .workspace-leaf{flex:1;height:100%}
+.ivm-card .cardbody .view-header{display:none}
+/* the editor inside paints no background of its own, so Opacity shows the map through all of it */
+.ivm-card.ivm-card .cardbody :is(.workspace-split,.workspace-leaf,.workspace-leaf-content,.view-content,.markdown-source-view,.markdown-reading-view,.markdown-preview-view,.cm-editor,.cm-scroller,.cm-sizer,.cm-contentContainer,.cm-content,.metadata-container,.inline-title){background-color:transparent}
+.ivm-card.ivm-card-left,.ivm-card.ivm-card-right{border-radius:10px}
+/* Starfield's hub previews: small, read-only, the editors' look */
+.ivm-pvl{position:absolute;inset:0;pointer-events:none;z-index:2}
+.ivm-card.ivm-pv{width:210px;height:128px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3);padding:6px 9px;display:block;font-size:9.5px;line-height:1.35}
+.ivm-card.ivm-pv .pvt{font-weight:700;font-size:10.5px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-normal)}
+.ivm-card.ivm-pv .pvb{height:96px;overflow:hidden;color:var(--text-muted);mask-image:linear-gradient(to bottom,#000 70%,transparent)}
+.ivm-card.ivm-pv .pvb :is(h1,h2,h3,h4,h5,h6){font-size:10.5px;margin:2px 0}
+.ivm-card.ivm-pv .pvb :is(p,ul,ol){margin:2px 0}
+.ivm-card.ivm-pv .pvb img{max-height:40px}
+/* Display → Edit mode's settings */
+.ivm .dlist .editopts{display:flex;flex-direction:column;gap:6px;margin:0 0 6px 34px;padding-left:10px;border-left:2px solid var(--line)}
+.ivm .dlist .editopts[hidden]{display:none}
+.ivm .dlist .eorow{display:flex;align-items:center;gap:8px;font:500 12px var(--font-interface,inherit);color:var(--muted)}
+.ivm .dlist .eorow .eol{min-width:84px}
+.ivm .dlist .eorow input[type=range]{width:110px}
+.ivm .dlist .editopts .eosw{display:flex;align-items:center;gap:8px;font:500 12px var(--font-interface,inherit);color:var(--muted);cursor:pointer}
+.ivm .dlist .editopts .eosw input{position:absolute;opacity:0;width:1px;height:1px}
+.ivm .dlist .editopts .eosw .sw{width:22px;height:10px;border-radius:6px;background:var(--line);position:relative;flex:none}
+.ivm .dlist .editopts .eosw .sw::after{content:"";position:absolute;top:1px;left:1px;width:8px;height:8px;border-radius:50%;background:var(--muted);transition:left .15s}
+.ivm .dlist .editopts .eosw input:checked + .sw{background:var(--accent)}
+.ivm .dlist .editopts .eosw input:checked + .sw::after{left:13px;background:var(--bg)}
+.ivm .dlist .editopts .eonote{font:400 11px var(--font-interface,inherit);color:var(--muted);opacity:.8}
+.ivm .dlist .eorow .eov{font:500 11px var(--mono);min-width:34px}
