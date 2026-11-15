@@ -3,7 +3,7 @@
   "name": "Exploration Maps",
   "version": "0.8.22",
   "minAppVersion": "1.5.0",
-  "description": "Visualize your notes across interactive maps (Emergence, Ideaverse, Starfield and more), with a Garden for growth stages. Based on Nick Milo's Maps of the Ideaverse.",
+  "description": "Visualize your notes across interactive maps (Levels, Cosmos, Starfield and more), with a Garden for growth stages. Based on Nick Milo's Maps of the Ideaverse.",
   "author": "Paul D (based on Nick Milo's Maps of the Ideaverse)",
   "authorUrl": "https://github.com/motion2082/exploration-maps",
   "isDesktopOnly": false

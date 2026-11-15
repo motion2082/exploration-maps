@@ -1,4 +1,4 @@
-/* Maps of the Ideaverse: the map itself. Ported from the standalone HTML map (index.html) with its logic intact:
+/* Exploration Maps: the map itself. Ported from the standalone HTML map (index.html) with its logic intact:
    the page's code runs inside the plugin's view, scoped to `root`, with Obsidian handling storage, events and notes. */
 import { Platform, sanitizeHTMLToDom, setIcon } from "obsidian";
 import { parseDay } from "./scan.js";
@@ -43,6 +43,8 @@ const REL = new Set(); for (const [a,b,t] of E) if (t === 4) { REL.add(a*n + b);
 // a link only the other note wrote (for example, a note whose up names this one) has no entry here and is placed by emergence
 const EKIND = new Map(); for (const [a,b,t] of E) { const key = a*n + b, o = EKIND.get(key); if (o == null || (t === 1 || t === 4 || t === 5) && !(o === 1 || o === 4)) EKIND.set(key, t); }
 // Link colors: the up property yellow, related purple, other properties slate; links in the body go above (up) or below (down) by level
+// the legend's "other properties" names the ones this vault links with most (from the scan), never a made-up list
+function PROPN(){ const l = (D.prop_names || []).filter(Boolean); return l.length ? ` (${l.map(k => String(k).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))).join(", ")}…)` : ""; }
 function edgeColor(a, b, upward){ const k = EKIND.get(a*n + b);
   // k is the kind as the active note (a) wrote it: 1 up, 4 related, 5 any other property
   if (k === 1) return css.upp; if (k === 4) return css.rel; if (k === 5) return css.prop;
@@ -808,32 +810,39 @@ const SPACELINK = () => { const light = root.dataset.theme === "paper" || root.d
   return Object.fromEntries(["up", "down", "rel", "upp", "prop"].map(kk => [kk, liftHex(css[kk], f)])); };
 const SPACE = {bg:"#04050c", ink:"#eef1ff", muted:"#8f98b8", line:"rgba(160,180,255,.14)", accent:"#b9a6ff", up:"#ffcf6e", down:"#6fd3ff", rel:"#c9a2ff", upp:"#fff09a", prop:"#a9b4c8", "edge-faint":"rgba(150,170,255,.08)"};
 // ---------- Sensemaking map: the four sensemaking archetypes as a 2×2 ----------
-// Left → right: Reflection → Expression. Bottom → top: Bottom-up → Top-down.
-// Synthesizer (top left) · Producer (top right) · Inner Guide (bottom left) · Creative (bottom right).
+// Left → right: taking in → putting out. Bottom → top: loose → structured.
+// Organising (top left) · Shipping (top right) · Thinking (bottom left) · Drafting (bottom right).
 // v1 places notes by rules on structure and place (no AI); a one-time AI pass can later replace x/y per note.
 const SNX = new Float32Array(n), SNY = new Float32Array(n), SXR = new Float32Array(2*n), SXA = new Float32Array(2*n), AIW = new Array(n).fill(null);
 let SXY = SXR;
 const SR0 = 820;                                        // half-width of the plane in world units
 const SC_ = {x: WW/2, y: WH/2};
 const ARCH4 = [ // name, quadrant sign (x, y), soft fill, darker ink for text on light themes
-  ["Synthesizer", -1,  1, "#4fb38a", "#23805c"], ["Producer", 1, 1, "#e46a6a", "#b83c3c"],
-  ["Inner Guide", -1, -1, "#e6c94a", "#9a7708"], ["Creative", 1, -1, "#8f7ae0", "#5f47b8"]];
+  ["Organising", -1,  1, "#4fb38a", "#23805c"], ["Shipping", 1, 1, "#e46a6a", "#b83c3c"],
+  ["Thinking", -1, -1, "#e6c94a", "#9a7708"], ["Drafting", 1, -1, "#8f7ae0", "#5f47b8"]];
 const EXPR_COLL = new Set(["works","drafts","newsletters","scripts","posts","videos","projects","courses","products","talks","essays","articles"]);
 const REFL_COLL = new Set(["sources","books","movies","people","quotes","clippings","podcasts","highlights","reviews","journals","statements"]);
+// which folders hold journals, quick captures, sources, main notes and things you make (Settings → Work Modes folders; Nick's LYT folders by default)
+const SFOLD = Object.assign({ journal: ["Calendar"], inbox: ["+"], sources: ["Atlas/Sources", "Clippings", "Readwise"], library: ["Atlas"], projects: ["Efforts"] }, (D.settings && D.settings.sense_folders) || {});
+const SFOLD_L = Object.fromEntries(Object.entries(SFOLD).map(([k, v]) => [k, (v || []).map(f => String(f).toLowerCase().replace(/\/+$/, "")).filter(Boolean)]));
+const inFold = (p, key) => { const q = p.toLowerCase(); return SFOLD_L[key].some(f => q.startsWith(f + "/")); };
+const sfName = (p, key) => { const q = p.toLowerCase(), f = SFOLD_L[key].find(f => q.startsWith(f + "/")); return f ? SFOLD[key][SFOLD_L[key].indexOf(f)] : ""; };
+// a daily note: in a journal folder, and in a Days / Daily… / Journal(s) subfolder or named by its date
+const isDaily = d => inFold(d.path, "journal") && (/\/(days?|daily[^/]*|journals?)\//i.test("/" + d.path) || /^\d{4}-\d{2}-\d{2}/.test(d.title));
 
 function senseRules(d, why){   // returns [x, y] in −1…1; `why` collects the reasons (for the note panel)
   const p = d.path, ti = d.title, w = Math.max((d.p && d.p.w) || 0, 1), sf = (d.p && d.p.sf) || [0,0,0,0,0,0];
   const [h, li, cb, fp, q, fl] = sf, c = new Set((d.collections || []).map(x => x.toLowerCase()));
   let x = 0, y = 0; const add = (ax, v, txt) => { if (!v) return; if (ax === "x") x += v; else y += v; if (why) why.push([ax, v, txt]); };
-  // Reflection (−) ↔ Expression (+)
-  if (p.startsWith("Efforts/")) add("x", .9, "in Efforts");
+  // Taking in (−) ↔ Putting out (+)
+  if (inFold(p, "projects")) add("x", .9, `in ${sfName(p, "projects")}`);
   if (p.includes("/Projects/Active/")) add("x", .3, "an active project");
-  if (p.startsWith("Calendar/")) add("x", -.5, "in Calendar");
-  const daily = /Calendar\/(Days|Journal|Journals)\//.test(p);
+  if (inFold(p, "journal")) add("x", -.5, `in ${sfName(p, "journal")}`);
+  const daily = isDaily(d);
   if (daily) add("x", -.3, "a daily or journal note");
-  const source = /Atlas\/Sources\/|Clippings|Readwise/.test(p);
+  const source = inFold(p, "sources");
   if (source) add("x", -.7, "a source or clipping");
-  if (p.startsWith("Atlas/")) add("x", -.25, "in Atlas");
+  if (inFold(p, "library")) add("x", -.25, `in ${sfName(p, "library")}`);
   if ([...c].some(k => EXPR_COLL.has(k))) add("x", .6, "in a works collection");
   if ([...c].some(k => REFL_COLL.has(k))) add("x", -.4, "in a reading or people collection");
   if (/\b(draft|script|outline|launch|newsletter|email|post|video|course|workshop|cohort)\b/i.test(ti)) add("x", .4, "its title names something to ship");
@@ -842,7 +851,7 @@ function senseRules(d, why){   // returns [x, y] in −1…1; `why` collects the
   if (cb) add("x", Math.min(.6, cb*.08), `${cb} checkbox${cb === 1 ? "" : "es"}`);
   const fpr = fp/(w/100); if (fp) add("x", -Math.min(.6, fpr*.12), `first-person writing (${fp} I/me/my)`);
   if (q) add("x", -Math.min(.3, q*.03), `${q} question${q === 1 ? "" : "s"}`);
-  // Bottom-up (−) ↔ Top-down (+)
+  // Loose (−) ↔ Structured (+)
   if (d.is_map) add("y", .8, "a map");
   if (fl & 4) add("y", .5, "runs a query");
   if (d.density) add("y", Math.min(.5, d.density*.6), "lines full of links");
@@ -851,7 +860,7 @@ function senseRules(d, why){   // returns [x, y] in −1…1; `why` collects the
   if (fl & 1 || d.rank != null) add("y", .2, "tracked with properties");
   if (source) add("y", .3, "processed from a source");
   if (daily) add("y", -1.1, "a daily or journal note");
-  if (p.startsWith("+/")) add("y", -.4, "in the inbox");
+  if (inFold(p, "inbox")) add("y", -.4, "in the inbox");
   if (d.level === 1) add("y", -.3, "not linked yet");
   if (w > 250 && !h && li < 3) add("y", -.5, "long free-flowing prose");
   if (/\b(spark|freewrite|journal|musing|thought)\b/i.test(ti)) add("y", -.3, "a spark or freewrite");
@@ -872,7 +881,7 @@ function layoutSense(){
     SNY[i] = SC_.y - (SXY[2*i+1] + gauss(p, 63)*j) * SR0; }
 }
 function senseTip(i){ const q = ARCH4[quadOf(i)][0], x = SXY[2*i], y = SXY[2*i+1];
-  return `${q}${senseSrc === "ai" && AIW[i] ? ` · “${AIW[i]}”` : ""} · ${x < 0 ? "reflection" : "expression"} ${Math.abs(x).toFixed(2)}, ${y >= 0 ? "top-down" : "bottom-up"} ${Math.abs(y).toFixed(2)}`; }
+  return `${q}${senseSrc === "ai" && AIW[i] ? ` · “${AIW[i]}”` : ""} · ${x < 0 ? "taking in" : "putting out"} ${Math.abs(x).toFixed(2)}, ${y >= 0 ? "structured" : "loose"} ${Math.abs(y).toFixed(2)}`; }
 function senseWhy(i){   // for the note panel: the archetype and the clues that put it there
   const why = []; senseRules(N[i], why);
   const fmt = ax => why.filter(r => r[0] === ax).sort((a,b) => Math.abs(b[1]) - Math.abs(a[1])).map(([, v, t]) => `${t} (${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(2)})`).join(", ") || "no clues";
@@ -1152,11 +1161,10 @@ const ARC_L = [{name:"Add", sub:"Spark → Remark", x0:200, x1:1150}, {name:"Rel
 const ARC_COLL = new Set(["works","drafts","newsletters","scripts","posts","videos","courses","products","talks","essays","articles"]);
 function arcStage(d, i){
   const p = d.path, c = new Set((d.collections || []).map(x => String(x).replace(/^\[\[|\]\]$/g, "").split("/").pop().toLowerCase()));
-  if (/^Calendar\/(Days|Journal|Journals)\//.test(p)) return [0, "a daily or journal note"];
-  if (p.startsWith("+/")) return [0, "in the inbox"];
-  if (/Atlas\/Sources\/|Clippings|Readwise/.test(p)) return [0, "a source, captured"];
-  if (p.startsWith("Efforts/Works/")) return [2, "a work, made for others"];
-  if (/^Efforts\/Projects\//.test(p)) return [2, "a project, aimed at shipping"];
+  if (isDaily(d)) return [0, "a daily or journal note"];
+  if (inFold(p, "inbox")) return [0, "in the inbox"];
+  if (inFold(p, "sources")) return [0, "a source, captured"];
+  if (inFold(p, "projects")) return [2, `in ${sfName(p, "projects")}, made to ship`];
   if ([...c].some(k_ => ARC_COLL.has(k_))) return [2, "in a works collection"];
   const ai = typeof SAI !== "undefined" && SAI && SAI.notes[p];
   if (ai && ai[0] >= .5) return [2, `read as expression by the AI pass (“${ai[2]}”)`];
@@ -1645,7 +1653,7 @@ EXP.shelf = {
   about: [
     "Call numbers (hub.map). Every note belongs to the Level 5 hub it reaches in the fewest links, and to the map (Level 3 or higher) it reaches in the fewest links. 2.18 is the second hub's 18th map. Hubs and maps are numbered by score.",
     "Runs. A run is the notes one map gathers, in the order they were created. The map's own tall spine starts its run, with a thin bookend before it. When the map lives in another folder, a dashed ghost spine (→ its name) starts the run instead.",
-    "Spines. Height is the Idea Emergence level: hubs and maps stand tallest and wear their level colors; linked notes are shorter. Width is word count. Unlinked notes lean at the end of each section.",
+    "Spines. Height is the level: hubs and maps stand tallest and wear their level colors; linked notes are shorter. Width is word count. Unlinked notes lean at the end of each section.",
     "Sections. Each top folder has its own section: Root and + on the top shelf, then Atlas and the rest on the left; Calendar, Efforts and x on the right.",
     "Shelve by (under Layout): Call no., A–Z, Created, Modified or Subfolder. The others ignore maps and mark each new letter or year. Subfolder runs a label tape along the shelf edge under each group; hover the tape to outline the group.",
     "Light up areas and projects: open Efforts and pick any. Each one and every note linked to it glows in its own color; the rest of the shelf dims.",
@@ -1947,7 +1955,7 @@ EXP.spiral = {
   legend: "Spiral: time as one line winding outward, a turn a year, starting at 12 o'clock and running clockwise, so each month lines up across the years. Maps and hubs sit on the line; linked notes gather around it, unlinked notes at the edges. The gold dot is today.",
 };
 
-// Lifeline: your whole ideaverse on one line, left to right. Each note stands on it like a mark on a seismograph:
+// Lifeline: your whole vault on one line, left to right. Each note stands on it like a mark on a seismograph:
 // the higher its level, the taller its stem. Unlinked notes hang just below the line.
 const LL = {pxYear: 900, base: 0};
 function layoutLifeline(){
@@ -1969,7 +1977,7 @@ EXP.lifeline = {
       if (y <= y1 && pxYear*k > 260) { ctx.font = `500 9.5px ${css.mono}`; ctx.fillStyle = css.muted; ctx.lineWidth = 1; ctx.strokeStyle = css.line; for (let m = 1; m < 12; m++) { const xm = x + m/12*pxYear*k; ctx.beginPath(); ctx.moveTo(xm, by - 4); ctx.lineTo(xm, by + 4); ctx.stroke(); } for (let m = 0; m < 12; m++) ctx.fillText(MON3[m], x + (m + .5)/12*pxYear*k, by + 62); } }
     const tn = (Date.now() - yStart(y0))/(365.2425*DAY); if (tn > 0 && tn < y1 - y0 + 1) { ctx.fillStyle = css.accent; ctx.beginPath(); ctx.arc(sx(tn*pxYear), by, 5, 0, 6.2832); ctx.fill(); }
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; },
-  legend: "Lifeline: your whole ideaverse on one line, left to right. Each note stands on it like a mark on a seismograph: the higher its level, the taller its stem (hubs tallest). Unlinked notes hang just below the line. The gold dot is today.",
+  legend: "Lifeline: your whole vault on one line, left to right. Each note stands on it like a mark on a seismograph: the higher its level, the taller its stem (hubs tallest). Unlinked notes hang just below the line. The gold dot is today.",
 };
 
 // ---------- Posters: a targeted dataset (a base's view, a filter) laid out by its own properties ----------
@@ -2515,7 +2523,7 @@ EXP.mosaic = {
     // each level's frame, a faint outline; the level names and counts live in the legend
     for (const f of MOSF) { const x = sx(-f.s / 2), y = sy(-f.s / 2), w = f.s * k; if (w < 30) continue; ctx.strokeStyle = css.line; ctx.globalAlpha = .9; ctx.lineWidth = 1; ctx.strokeRect(x - 2, y - 2, w + 4, w + 4); }
     ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic"; },
-  legend: "Mosaic: every note a tile, set like stones. Emergence (the default) puts Level 5 at the heart and each level in a square frame around the one above it (the levels and counts above, from the middle out), out to the unlinked notes at the edge; inside a frame, a folder's notes sit together as a patch of color. Scattered sets the same tiles in no order. A tile's size is its link score; maps and hubs wear their level colors. Click the Mosaic tab to switch.",
+  legend: "Mosaic: every note a tile, set like stones. Levels (the default) puts Level 5 at the heart and each level in a square frame around the one above it (the levels and counts above, from the middle out), out to the unlinked notes at the edge; inside a frame, a folder's notes sit together as a patch of color. Scattered sets the same tiles in no order. A tile's size is its link score; maps and hubs wear their level colors. Click the Mosaic tab to switch.",
 };
 
 // ---------- Graph: our take on Obsidian's graph view ----------
@@ -2632,10 +2640,10 @@ EXP.graph = {
     ctx.strokeStyle = css["edge-faint"]; ctx.globalAlpha = (sel >= 0 || hover >= 0 ? .75 : 1) * Math.min(1, .45 + .55 / stp); ctx.lineWidth = 1; ctx.beginPath();
     for (let q = 0; q < on.length; q += stp) { const [a, b] = E[on[q]]; ctx.moveTo(sx(X[a]), sy(Y[a])); ctx.lineTo(sx(X[b]), sy(Y[b])); }
     ctx.stroke(); ctx.globalAlpha = 1; },
-  legend: "Obsidian: every note pulled toward the notes it links to and pushed away from the rest, like Obsidian's graph view, drawn with the emergence symbols so hubs and maps stand out. Unlinked notes ring the outside. Drag a note and its links tug the rest along; let go and it settles. Click a note to light up its links; the Timelapse grows it, and Focus mode and Wander Mode work here too.",
+  legend: "Graph: every note pulled toward the notes it links to and pushed away from the rest, like Obsidian's graph view, drawn with the level symbols so hubs and maps stand out. Unlinked notes ring the outside. Drag a note and its links tug the rest along; let go and it settles. Click a note to light up its links; the Timelapse grows it, and Focus mode and Wander Mode work here too.",
 };
 
-EXP.ideaverse = { ...EXP.graph, legend: "Ideaverse: your whole vault as a ball of notes, pulled together by their links and pushed apart by each other, drawn with the emergence symbols. Drag to turn it, scroll to fly in; Orbit in Animations turns it (Earth, Mercury or LYT Speed). Unlinked notes sit on a shell around the rest. Click a note to light up its links." };
+EXP.ideaverse = { ...EXP.graph, legend: "Cosmos: your whole vault as a ball of notes, pulled together by their links and pushed apart by each other, drawn with the level symbols. Drag to turn it, scroll to fly in; Orbit in Animations turns it (Earth, Mercury or LYT Speed). Unlinked notes sit on a shell around the rest. Click a note to light up its links." };
 
 // ---------- PKM Planet: the six domains of personal knowledge as a world map on a table ----------
 // Each note settles around a landmark in its domain (by folder and title); hubs and maps sit at the heart of each
@@ -2933,7 +2941,7 @@ const DRIFT = {calm: [.018, 70], slow: [.035, 44], lively: [.07, 26], earth: [.0
 // Earth, Mercury and LYT hold a 20° tilt; with Wobble on, the tilt rocks 8° either way once a turn, like a spinning top
 let WOB = pref("iv-wob", false) === true;
 const tilt = yaw => (20 + (WOB ? 8*Math.sin(yaw) : 0))*Math.PI/180;
-// two Orbit choices, kept apart: maps you turn like a globe (the Ideaverse, Tesla, Corona, Octahedron, Shells, the PKM Globe) use Earth, Mercury or LYT Speed;
+// two Orbit choices, kept apart: maps you turn like a globe (the Cosmos, Tesla, Corona, Octahedron, Shells, the PKM Globe) use Earth, Mercury or LYT Speed;
 // every other map uses Calm, Slow or Lively
 const globeSet = () => sphOn() || geo3On();
 const dSp = () => globeSet() ? DSG : DSF === "earth" ? "slow" : DSF;
@@ -3169,7 +3177,7 @@ function capCrop(){ const cw = cv.width, ch = cv.height, a = CAP.frame === "squa
   const ar = capArea(), aw = (ar.x1 - ar.x0) * dpr; let w = ch * a, h = ch; if (w > aw) { w = aw; h = aw / a; } const cx = (ar.x0 + ar.x1) / 2 * dpr; return { x: Math.max(0, Math.min(cw - w, cx - w / 2)), y: (ch - h) / 2, w, h }; }
 // one frame of a capture: the map, cropped to its frame, scaled to the output, with the credit in the corner
 function capCompose(out){ const c = capCrop(), o = out.getContext("2d"); o.drawImage(cv, c.x, c.y, c.w, c.h, 0, 0, out.width, out.height);
-  if (CAP.credit) { const t = "Maps of the Ideaverse", fs = Math.round(out.width / 42); o.save(); o.font = `600 ${fs}px ${css.display}`; o.textAlign = "right"; o.textBaseline = "bottom"; o.globalAlpha = .8; o.lineWidth = fs / 3; o.strokeStyle = css.bg; o.fillStyle = css.ink;
+  if (CAP.credit) { const t = "Exploration Maps", fs = Math.round(out.width / 42); o.save(); o.font = `600 ${fs}px ${css.display}`; o.textAlign = "right"; o.textBaseline = "bottom"; o.globalAlpha = .8; o.lineWidth = fs / 3; o.strokeStyle = css.bg; o.fillStyle = css.ink;
     o.strokeText(t, out.width - fs, out.height - fs * .8); o.fillText(t, out.width - fs, out.height - fs * .8); o.restore(); } }
 function capCanvas(){ const c = capCrop(), out = doc.createElement("canvas"), fixed = CAP.frame === "square" ? [1080, 1080] : CAP.frame === "vertical" ? [1080, 1920] : null;
   out.width = fixed ? fixed[0] : Math.round(c.w); out.height = fixed ? fixed[1] : Math.round(c.h); return out; }
@@ -3392,13 +3400,17 @@ function rowNames(){   // Space-Time: each folder's name at the left of its row
 }
 function levelNames(){
   ctx.textBaseline = "alphabetic";
+  // the side tabs (Legend, Animations) sit on the map's left edge: a level name level with one starts just past it
+  const c = cv.getBoundingClientRect(), tabs = [...cv.parentElement.querySelectorAll(".legtab")].filter(t => !t.hidden && t.offsetParent)
+    .map(t => { const r = t.getBoundingClientRect(); return [r.top - c.top, r.bottom - c.top, r.right - c.left]; });
   for (const L of LEVELS) {
     const b = bandY[L.lv], y0 = sy(b.y0), y1 = sy(b.y1); if (y1 < 0 || y0 > H) continue;
     const y = Math.min(Math.max(y0 + 16, 66), y1 - 6);
     ctx.font = `500 11px ${css.mono}`;
     const t = `${L.lv} · ${L.name.toUpperCase()}`, w = ctx.measureText(t).width;
-    ctx.fillStyle = css.bg; ctx.globalAlpha = .6; ctx.fillRect(6, y-12, w+12, 17); ctx.globalAlpha = .9;
-    ctx.fillStyle = css.accent; ctx.fillText(t, 12, y); ctx.globalAlpha = 1;
+    let x0 = 6; for (const [t0, t1, r] of tabs) if (y + 5 > t0 && y - 12 < t1) x0 = Math.max(x0, r + 6);
+    ctx.fillStyle = css.bg; ctx.globalAlpha = .6; ctx.fillRect(x0, y-12, w+12, 17); ctx.globalAlpha = .9;
+    ctx.fillStyle = css.accent; ctx.fillText(t, x0 + 6, y); ctx.globalAlpha = 1;
   }
 }
 function gravityGuides(){
@@ -3727,7 +3739,7 @@ cv.addEventListener("pointermove", e => {
     if (t >= 0) { tip.classList.remove("arc"); html(tip).v = tapeTip(t); tip.hidden = false; const tw = tip.offsetWidth; tip.style.left = Math.min(e.clientX + 14, win.innerWidth - tw - 8) + "px"; tip.style.top = (e.clientY + 14) + "px"; return; } }
   tip.classList.remove("arc");
   if (i >= 0) { const d = N[i]; const av = axisValue(d); const named = LH.some(b => b[4] === i), lvShown = view === "emergence" || view === "gravity";   // the map already shows its name (and, here, its level)
-    html(tip).v = `${named ? "" : `<b>${esc(d.title)}</b>`}${av ? `<em class="tav">${esc(av)}</em>` : ""}<span>${d.archive ? "archive" : esc(d.sub)} · ${d.date ? esc(d.date) : "no date"} · ${lvShown ? "" : `(Level ${d.level})`}(${d.body_in} in)(${d.body_out} out)${RANK[i] ? ` (#${RANK[i].toLocaleString()} in ${d.archive ? "the archive" : "the ideaverse"})` : ""}</span>${view === "sense" ? `<em class="tav">${esc(senseTip(i))}</em>` : ""}${view === "stars" && BOD[i] >= 0 ? `<em class="tav">✦ ${esc(bodyLabel(i))}</em>` : ""}`; tip.hidden = false;
+    html(tip).v = `${named ? "" : `<b>${esc(d.title)}</b>`}${av ? `<em class="tav">${esc(av)}</em>` : ""}<span>${d.archive ? "archive" : esc(d.sub)} · ${d.date ? esc(d.date) : "no date"} · ${lvShown ? "" : `(Level ${d.level})`}(${d.body_in} in)(${d.body_out} out)${RANK[i] ? ` (#${RANK[i].toLocaleString()} in ${d.archive ? "the archive" : "the vault"})` : ""}</span>${view === "sense" ? `<em class="tav">${esc(senseTip(i))}</em>` : ""}${view === "stars" && BOD[i] >= 0 ? `<em class="tav">✦ ${esc(bodyLabel(i))}</em>` : ""}`; tip.hidden = false;
     const tw = tip.offsetWidth; tip.style.left = Math.min(e.clientX + 14, win.innerWidth - tw - 8) + "px"; tip.style.top = (e.clientY + 14) + "px"; }
   else tip.hidden = true;
 });
@@ -3894,7 +3906,7 @@ function select(i, fromTrail){
     ${upl.length ? `<h5><i style="border-color:var(--upp)"></i>Uplinks · ${upl.length}</h5>${noteList(upl)}` : ""}
     ${rel.length ? `<h5><i style="border-color:var(--rel)"></i>Related · ${rel.length}</h5>${noteList(rel)}` : ""}
     ${prop.length ? `<h5><i style="border-color:var(--prop)"></i>Other properties · ${prop.length}</h5>${noteList(prop)}` : ""}
-    ${up.length || down.length ? `<div class="lgrp${upl.length || rel.length || prop.length ? " sep" : ""}" title="Links in the body of the note, placed by emergence level">Emergence</div>` : ""}
+    ${up.length || down.length ? `<div class="lgrp${upl.length || rel.length || prop.length ? " sep" : ""}" title="Links in the body of the note, placed by level">Levels</div>` : ""}
     ${up.length ? `<h5><i style="border-color:var(--up)"></i>Above · ${up.length}</h5>${noteList(up)}` : ""}
     ${down.length ? `<h5><i style="border-color:var(--down)"></i>Below · ${down.length}</h5>${noteList(down)}` : ""}
     ${!up.length && !down.length && !rel.length && !prop.length && !upl.length ? `<h5>No links on the map</h5>` : ""}`;
@@ -3904,7 +3916,13 @@ function select(i, fromTrail){
   $("#dcol").onclick = () => setCollapsed(true);
   $("#dopen").onclick = () => host.openNote(d.path, true);
   $("#dfocus").onclick = () => { focusArmed = false; setFocus(focus === i ? -1 : i); };
-  drawer.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { navTo(+b.dataset.go); toEditor(+b.dataset.go); });
+  // click: fly to the note on the map. ⌘-click (Ctrl-click on Windows and Linux) or a middle-click: open it in a new tab, the same as on the map
+  const openTab = j => { if (host.openNote) host.openNote(N[j].path, true); };
+  drawer.querySelectorAll("[data-go]").forEach(b => {
+    if (host.openNote) b.title = `Click to go to it on the map · ${Platform.isMacOS ? "⌘" : "Ctrl"}-click to open it`;
+    b.onclick = ev => { const j = +b.dataset.go; if (Platform.isMacOS ? ev.metaKey : ev.ctrlKey) { openTab(j); return; } navTo(j); toEditor(j); };
+    b.onauxclick = ev => { if (ev.button === 1) { ev.preventDefault(); openTab(+b.dataset.go); } };
+  });
   renderTrail(); draw();
 }
 onKey(e => {
@@ -4100,8 +4118,8 @@ const syncEmd = () => root.querySelectorAll('input[name="emd"]').forEach(r => r.
 { const r = $("#emerpop").createEl("label", { cls: "mini lcemo ememo" }); const cb = r.createEl("input", { type: "checkbox" }); cb.checked = emoOn("emergence"); { const f0 = FUI.emosw; FUI.emosw = () => { if (f0) f0(); cb.checked = emoOn("emergence"); }; } r.createEl("i", { cls: "sw" }); r.createSpan({ text: "Show emojis" });
   const st = $("#emerpop").createDiv({ cls: "pn lcemost" });
   cb.onchange = async () => { setEmoOn("emergence", cb.checked); st.setText(""); if (cb.checked && !EMO) { const e_ = await loadEmo(); if (e_) st.setText(e_); } relayout(false); draw(); }; }
-// Sensemakers' gear: Show emojis too (Nick, 0.7.58)
-{ const se = doc.createElement("div"); se.id = "senseemo"; se.className = "mspop"; se.hidden = true; $("#sensepop").after(se);   // its own section, since Sensemakers' Placed by only shows with AI placement
+// Work Modes' gear: Show emojis too (Nick, 0.7.58)
+{ const se = doc.createElement("div"); se.id = "senseemo"; se.className = "mspop"; se.hidden = true; $("#sensepop").after(se);   // its own section, since Work Modes' Placed by only shows with AI placement
   const r = se.createEl("label", { cls: "mini lcemo smemo" }); const cb = r.createEl("input", { type: "checkbox" }); cb.checked = emoOn("sense"); { const f0 = FUI.emosw; FUI.emosw = () => { if (f0) f0(); cb.checked = emoOn("sense"); }; } r.createEl("i", { cls: "sw" }); r.createSpan({ text: "Show emojis" });
   const st = se.createDiv({ cls: "pn lcemost" });
   cb.onchange = async () => { setEmoOn("sense", cb.checked); st.setText(""); if (cb.checked && !EMO) { const e_ = await loadEmo(); if (e_) st.setText(e_); } relayout(false); draw(); }; }
@@ -4310,7 +4328,7 @@ html($("#srows")).v = SROWS.map((r,j) => r.h ? `<h6>${r.h}</h6>${r.h === "Link w
 function syncScore(){
   { const cb = $("#sbal"), p_ = root.querySelector(".sbalp"), nn = N.filter(d => !d.archive).length; if (cb) { cb.checked = !!S.bal;
       p_.textContent = (S.bal ? `On: Level 4 from ${CUT.l4.toFixed(1)}, Level 3 from ${CUT.l3.toFixed(1)} (the top 2% and 5% of linked notes); the two sliders below rest. ` : "")
-        + `Toggle on for ideaverses under ${BAL_N.toLocaleString()} notes, for a better balance between the five levels of idea emergence. ` + (nn < BAL_N ? `Yours has ${nn.toLocaleString()}: recommended.` : `Yours has ${nn.toLocaleString()}: the fixed cut-offs already fit. Keep toggle off.`);
+        + `Toggle on for vaults under ${BAL_N.toLocaleString()} notes, for a better balance between the five levels of idea emergence. ` + (nn < BAL_N ? `Yours has ${nn.toLocaleString()}: recommended.` : `Yours has ${nn.toLocaleString()}: the fixed cut-offs already fit. Keep toggle off.`);
       for (const k_ of ["l4", "l3"]) { const j = SROWS.findIndex(r => r.key === k_), el = $("#s" + j); if (el) { el.disabled = !!S.bal; el.closest(".srow, label, div").classList.toggle("dim", !!S.bal); } } } }
   SROWS.forEach((r,j) => { if (r.h) return; const v = getS(r.key); $("#s"+j).value = v; $("#sv"+j).textContent = r.step >= 1 ? v : (+v).toFixed(r.step < .1 ? 2 : 1); });
   const c = {}; for (const d of N) if (!d.archive) c[d.level] = (c[d.level]||0) + 1;
@@ -4611,19 +4629,19 @@ function starLegend(){
         + (showArch && hasArch ? ex(`Ancient elliptical: archive`) : "") + ex(`Faint filaments: links between galaxies`))
     + (chartOn() ? `<div style="margin-top:4px;color:var(--ink)">Star Chart</div>` + ex(`Inner ring: links by kind (colors as below)`) + ex(`Middle ring: a dial of time, first year at the top, clockwise to today (▼); a tick per month of linked notes`)
         + ex(`Outer ring: signposts to the maps it links to; click one to go there`) + (CHL.read ? ex(`Readout: level · score, links in · out, first year · new this year`) : "") + (CHL.lines ? ex(`Lines: links between maps and hubs`) : "") : "")
-    + (L_ => `<div style="margin-top:4px"><i class="ln" style="border-color:${L_.up}"></i>links above</div><div><i class="ln" style="border-color:${L_.down}"></i>links below</div><div><i class="ln" style="border-color:${L_.upp}"></i>up property</div><div><i class="ln" style="border-color:${L_.rel}"></i>related property</div><div><i class="ln" style="border-color:${L_.prop}"></i>other properties</div>`)(SPACELINK());
+    + (L_ => `<div style="margin-top:4px"><i class="ln" style="border-color:${L_.up}"></i>links up a level</div><div><i class="ln" style="border-color:${L_.down}"></i>links down a level</div><div><i class="ln" style="border-color:${L_.upp}"></i>up property</div><div><i class="ln" style="border-color:${L_.rel}"></i>related property</div><div><i class="ln" style="border-color:${L_.prop}"></i>other properties${PROPN()}</div>`)(SPACELINK());
 }
 function legend(){
   if (view === "stars") { html($("#legend")).v = starLegend(); return; }
-  if (view === "sense") { html($("#legend")).v = `<div class="lh"><span>Legend · Sensemakers</span><span class="lc" id="legclose" aria-hidden="true" title="Click anywhere to collapse">‹</span></div>`
+  if (view === "sense") { html($("#legend")).v = `<div class="lh"><span>Legend · Work Modes</span><span class="lc" id="legclose" aria-hidden="true" title="Click anywhere to collapse">‹</span></div>`
     + LEVELS.slice(0,3).map(L => `<div><i style="background:linear-gradient(135deg,${GRAD[L.lv][0]},${GRAD[L.lv][1]});${L.lv===5?"border-radius:3px;":L.lv===4?"border-radius:1px;transform:rotate(45deg) scale(.8);":""}"></i>${L.lv} · ${L.name}</div>`).join("")
     + `<div><i style="background:${css.sl2}"></i>2 · Linked notes</div><div><i style="background:${css.sl1}"></i>1 · Unlinked notes</div>`
-    + `<div style="margin-top:4px;color:var(--ink)">${senseSrc === "ai" ? `Placed by a one-time AI pass${SAI && SAI.date ? ` (${esc(SAI.date)})` : ""}` : "Placed by rules, no AI"}${syFull() ? "" : ` · ${SY0}–${SY1}`}</div><div style="opacity:.85">Left–right: reflection → expression</div><div style="opacity:.85">Up–down: bottom-up → top-down</div>`
+    + `<div style="margin-top:4px;color:var(--ink)">${senseSrc === "ai" ? `Placed by a one-time AI pass${SAI && SAI.date ? ` (${esc(SAI.date)})` : ""}` : "Placed by rules, no AI"}${syFull() ? "" : ` · ${SY0}–${SY1}`}</div><div style="opacity:.85">Left to right: taking in → putting out</div><div style="opacity:.85">Bottom to top: loose → structured</div>`
     + `<div style="margin-top:4px;opacity:.85">▶ plays by month or week: each new note pops, streaks, drops or spirals to its spot</div>`; return; }
   html($("#legend")).v = `<div class="lh"><span>${view === "spacetime" ? "Legend · Space-Time" : "Legend"}</span><span class="lc" id="legclose" aria-hidden="true" title="Click anywhere to collapse">‹</span></div>` + LEVELS.map(L => {
     const sw = L.lv >= 3 ? `background:linear-gradient(135deg,${GRAD[L.lv][0]},${GRAD[L.lv][1]});${L.lv===5?"border-radius:3px;":L.lv===4?"border-radius:1px;transform:rotate(45deg) scale(.8);":""}` : `background:${L.lv===2?css.l2:css.l1}`;
     return `<div><i style="${sw}"></i>${L.lv} · ${L.name} <span style="margin-left:auto;padding-left:10px">${(cnt[L.lv]||0).toLocaleString()}</span></div>`;
-  }).join("") + (showArch && hasArch ? `<div><i style="background:none;border:1.5px solid ${css.muted}"></i>Archive (rings)</div>` : "") + `<div style="margin-top:4px"><i class="ln" style="border-color:${css.up}"></i>links above</div><div><i class="ln" style="border-color:${css.down}"></i>links below</div>` + (`<div><i class="ln" style="border-color:${css.upp}"></i>up property</div><div><i class="ln" style="border-color:${css.rel}"></i>related property</div><div><i class="ln" style="border-color:${css.prop}"></i>other properties (actors, director, by, next…)</div>`) + (focus >= 0 ? `<div><i class="ln" style="border-color:${css.muted};opacity:.5;border-top-width:1px"></i>links between the other notes in focus</div>` : "");
+  }).join("") + (showArch && hasArch ? `<div><i style="background:none;border:1.5px solid ${css.muted}"></i>Archive (rings)</div>` : "") + `<div style="margin-top:4px"><i class="ln" style="border-color:${css.up}"></i>links up a level</div><div><i class="ln" style="border-color:${css.down}"></i>links down a level</div>` + (`<div><i class="ln" style="border-color:${css.upp}"></i>up property</div><div><i class="ln" style="border-color:${css.rel}"></i>related property</div><div><i class="ln" style="border-color:${css.prop}"></i>other properties${PROPN()}</div>`) + (focus >= 0 ? `<div><i class="ln" style="border-color:${css.muted};opacity:.5;border-top-width:1px"></i>links between the other notes in focus</div>` : "");
   if (view === "spacetime" && !domeOn()) $("#legend").createDiv({ text: "Time is on the x-axis. \u201cSpace,\u201d as represented by folder structure, is on the y-axis. In each row, higher levels sit higher.", attr: { style: "margin-top:4px;opacity:.85;max-width:300px;white-space:normal" } });
   if (view === "tree") { const k_ = $("#legend").createDiv({ cls: "lgtree" });   // Tree's own key: leaves by age, the lit way home
     for (const [c, t] of [["hsl(110,55%,52%)", "leaf: new this year"], ["hsl(55,55%,50%)", "leaf: 2–4 years old"], ["hsl(18,35%,42%)", "leaf: older"], ["hsl(28,30%,38%)", "fallen: Home never reaches it"]]) { const r = k_.createDiv(); const sw = r.createEl("i"); sw.setCssStyles({ background: c, borderRadius: "50% 0" }); r.appendText(t); }
@@ -4658,7 +4676,7 @@ setTheme(pref("iv-theme", autoTheme()));
 // ---------- saved views: the whole state of the map (view, axis, filters, focus, note, camera) under a name ----------
 // Kept in this browser; "Export file" writes ideaverse-views.js, which the page also reads from its folder (file over app).
 const PIDX = new Map(N.map((d,i) => [d.path, i]));
-const VIEW_NAME = {posters:"Posters", builder:"Base Builder", graph:"Obsidian", mosaic:"Mosaic", people:"People", ideaverse:"Ideaverse", planet:"Planet", quincunx:"Geometric", shelf:"Bookshelf", tree:"Tree", treemap:"Treemap", skyline:"Skyline", lincal:"Linear Calendar", spiral:"Spiral", lifeline:"Lifeline", emergence:"Emergence", spacetime:"Space-Time", gravity:"Gravity", stars:"Starfield", sense:"Sensemakers", arc:"ARC", chord:"Chord"};
+const VIEW_NAME = {posters:"Posters", builder:"Base Builder", graph:"Graph", mosaic:"Mosaic", people:"People", ideaverse:"Cosmos", planet:"Planet", quincunx:"Geometric", shelf:"Bookshelf", tree:"Tree", treemap:"Treemap", skyline:"Skyline", lincal:"Linear Calendar", spiral:"Spiral", lifeline:"Lifeline", emergence:"Levels", spacetime:"Space-Time", gravity:"Gravity", stars:"Starfield", sense:"Work Modes", arc:"ARC", chord:"Chord"};
 let views = (() => { const base = [], local = pref("iv-views", null);
   if (!Array.isArray(local)) return base.slice(); const names = new Set(local.map(v => v.name)); return [...local, ...base.filter(v => !names.has(v.name))]; })();
 let curView = "";
@@ -4668,11 +4686,11 @@ const saveGroups = () => { save("iv-vgroups", vgroups); writeSaved(); };
 // a first look at Saved (Nick, 0.7.52): someone new gets one group, Base, with two views (Emergence and its Space-Time version), so the shape is clear.
 // They live in the plugin's own data only, never written to your views file until you change something; delete them and they stay gone.
 if (!views.length && !vgroups.length && !(host.savedFolder && host.savedFolder()) && pref("iv-vseeded", false) !== true) {
-  vgroups = [{ name: "Base", open: true }]; views = [{ name: "Emergence", view: "emergence", mode: "time", group: "Base" }, { name: "Emergence · Space-Time", view: "spacetime", mode: "time", group: "Base" }];
+  vgroups = [{ name: "Base", open: true }]; views = [{ name: "Levels", view: "emergence", mode: "time", group: "Base" }, { name: "Levels · Space-Time", view: "spacetime", mode: "time", group: "Base" }];
   save("iv-vgroups", vgroups); save("iv-views", views); save("iv-vseeded", true); }
 // views and tours are kept in the plugin's data and, once a folder is picked, in a plain JSON file in the vault (the file wins on load)
 let writeT = 0;
-const savedJSON = () => JSON.stringify({ about: "Saved views and recorded tours from Maps of the Ideaverse", saved: new Date().toISOString().slice(0, 10), groups: vgroups, views, tours: typeof tours !== "undefined" ? tours : [], emojis: EMOF }, null, 1);
+const savedJSON = () => JSON.stringify({ about: "Saved views and recorded tours from Exploration Maps", saved: new Date().toISOString().slice(0, 10), groups: vgroups, views, tours: typeof tours !== "undefined" ? tours : [], emojis: EMOF }, null, 1);
 function writeSaved(){ if (!host.writeSaved || !host.savedFolder()) return; win.clearTimeout(writeT); writeT = win.setTimeout(() => { void host.writeSaved(savedJSON()); }, 300); }
 async function ensureFolder(){ if (!host.savedFolder || host.savedFolder()) return true; const d = await host.pickSavedFolder(); syncFolderBtn(); return !!d; }
 // the footer: "Saved in" and a small pill with the folder (click to move it); before you pick one, the pill says Choose folder
@@ -4943,8 +4961,8 @@ root.querySelectorAll('input[name="s3d"]').forEach(r => r.onchange = () => { if 
 syncS3D();
 function syncSenseSrc(){ root.querySelectorAll('input[name="ssrc"]').forEach(r => { r.checked = r.value === senseSrc; r.disabled = r.value === "ai" && !SAI; });
   $("#saidate").textContent = SAI ? `one-time read of each note${SAI.date ? ` · ${SAI.date}` : ""}` : "not run yet (no ideaverse-sense-ai.js)";
-  $("#sainfo").textContent = SAI ? aiCount < n ? `${aiCount.toLocaleString()} of ${n.toLocaleString()} notes have an AI placement; newer notes use the rules until the next pass.` : `All ${n.toLocaleString()} notes have an AI placement. Click Sensemakers again to switch.` : "";
-  sBtn.title = !SAI ? "Sensemakers: notes placed by what they are and how they're written (no AI)" : senseSrc === "ai" ? "Sensemakers · placed by AI (click again to switch)" : "Sensemakers · placed by rules (click again to switch)"; }
+  $("#sainfo").textContent = SAI ? aiCount < n ? `${aiCount.toLocaleString()} of ${n.toLocaleString()} notes have an AI placement; newer notes use the rules until the next pass.` : `All ${n.toLocaleString()} notes have an AI placement. Click Work Modes again to switch.` : "";
+  sBtn.title = !SAI ? "Work Modes: notes placed by what they are and how they're written (no AI)" : senseSrc === "ai" ? "Work Modes · placed by AI (click again to switch)" : "Work Modes · placed by rules (click again to switch)"; }
 root.querySelectorAll('input[name="ssrc"]').forEach(r => r.onchange = () => { if (!r.checked || r.value === senseSrc) return;
   senseSrc = r.value; save("iv-ssrc", senseSrc); SXY = senseSrc === "ai" ? SXA : SXR; layoutSense();
   if (senseT != null) { senseTrail = []; senseSet(+$("#tlrange").value, true); }
@@ -5035,7 +5053,7 @@ const loadSavedText = (txt, fromSync) => { if (dead) return;
   if (txt == null) { if (views.length || tours.length) writeSaved(); return; }
   try { const o = JSON.parse(txt), merge = (fromFile, local) => { if (fromSync) return [fromFile, 0]; const names = new Set(fromFile.map(x => x.name)); const extra = local.filter(x => !names.has(x.name)); return [fromFile.concat(extra), extra.length]; };
     // the starter views a new device made for itself (group Base) never get pushed into a file that already has views
-    if (Array.isArray(o.views) && o.views.length && pref("iv-vseeded", false) === true && views.length === 2 && views.every(v => v.group === "Base" && (v.name === "Emergence" || v.name === "Emergence · Space-Time")) && !o.views.some(v => v.group === "Base")) {
+    if (Array.isArray(o.views) && o.views.length && pref("iv-vseeded", false) === true && views.length === 2 && views.every(v => v.group === "Base" && (["Emergence", "Emergence · Space-Time", "Levels", "Levels · Space-Time"].includes(v.name))) && !o.views.some(v => v.group === "Base")) {
       views = []; vgroups = vgroups.filter(g => g.name !== "Base"); }
     let nv = 0, nt = 0;   // anything saved here but missing from the file (made before the file existed) is kept and written back
     if (Array.isArray(o.views)) [views, nv] = merge(o.views, views);
@@ -5083,12 +5101,12 @@ function whyBox(i){
   else if (d.level === 2) rule = `It has links, but it isn't a map and its score ${f2(d.score)} is under the Level 3 cut-off (${CUT.l3.toFixed(1)}${S.bal ? ", balanced" : ""}).`;
   else rule = "No links in or out yet.";
   if (ar && d.level >= 2) rule += " (Archive notes are scored on their own links only.)";
-  const where = ar ? "the archive" : "the ideaverse";   // always say where its score ranks
+  const where = ar ? "the archive" : "the vault";   // always say where its score ranks
   rule += ` (#${scoreRank(i).toLocaleString()} in ${where})`;
   const open = pref("iv-why2", false) ? " open" : "";
   let sense = "";
   if (view === "sense") { const z = senseWhy(i);
-    const pos = `<b>${esc(z.q)}</b> · ${z.x < 0 ? "reflection" : "expression"} ${Math.abs(z.x).toFixed(2)}, ${z.y >= 0 ? "top-down" : "bottom-up"} ${Math.abs(z.y).toFixed(2)}`;
+    const pos = `<b>${esc(z.q)}</b> · ${z.x < 0 ? "taking in" : "putting out"} ${Math.abs(z.x).toFixed(2)}, ${z.y >= 0 ? "structured" : "loose"} ${Math.abs(z.y).toFixed(2)}`;
     sense = z.ai !== undefined
       ? `<p class="wrule">${pos}</p><p class="wnote">${z.ai === null ? "Added after the AI pass, so placed by the rules for now." : `The AI read it as: ${esc(z.ai)}.`}<br>The rules would say ${esc(z.rq)}: ${esc(z.xr)}; ${esc(z.yr)}.</p>`
       : `<p class="wrule">${pos}</p><p class="wnote">Left–right: ${esc(z.xr)}.<br>Up–down: ${esc(z.yr)}.</p>`; }
@@ -5114,7 +5132,7 @@ if (doc.fonts) doc.fonts.ready.then(() => { if (!dead) { readCss(); draw(); } })
 // watermarks on the map: Linking Your Thinking at the bottom center, and (desktop) the plugin's name at the top left. Neither takes clicks.
 { const m = cv.parentElement;
   const lyt = m.createDiv({ cls: "wm wm-lyt", attr: { "aria-hidden": "true" } }); lyt.appendChild(root.querySelector(".brand .duo").cloneNode(true)); lyt.createSpan({ text: "Linking Your Thinking" });
-  const nm = m.createDiv({ cls: "wm wm-name", attr: { "aria-hidden": "true" } }); nm.appendText("Maps of the "); nm.createEl("em", { text: "Ideaverse" }); }
+  const nm = m.createDiv({ cls: "wm wm-name", attr: { "aria-hidden": "true" } }); nm.createEl("em", { text: "Exploration" }); nm.appendText(" Maps"); }
 
 // Starfield twinkle: now and then (every few seconds) one star, rarely two, glints and fades. It draws on its own
 // thin canvas over the map, so the map never redraws for it.
@@ -5179,17 +5197,17 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
   left.appendChild(root.querySelector(".brand .duo")); left.appendChild($("#vsegms")); { const fbar = $("#focusbar"); fbar.classList.add("mapfb"); cv.parentElement.appendChild(fbar); }   // the focus bar floats at the top of the map
   // the note and link counts sit at the map's top left (the plugin's name sits at the top right, clear of the note panel)
   { const st = $("#stats"); st.classList.add("mapstats"); cv.parentElement.appendChild(st); }
-  // the main tabs: Emergence, Ideaverse, Starfield, Sensemakers. Gravity and Tesla live in More
+  // the main tabs: Emergence, Ideaverse, Starfield, Work Modes. Gravity and Tesla live in More
   { const vs = $("#vseg"), em = vs.querySelector('button[data-v="emergence"]'), st = vs.querySelector('button[data-v="stars"]');
     const mk = (v, label, tip, go) => { const b = doc.createElement("button"); b.dataset.v = v; b.textContent = label; b.setAttribute("aria-label", tip); b.onclick = e => { if ((v === "ideaverse" && view === v)) { e.stopPropagation(); toggleMapOpts(b); return; } closePops(); go(); root.querySelectorAll("#vseg button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === tabOf()))); if (typeof syncTB === "function") syncTB(); }; return b; };
-    em.after(mk("ideaverse", "Ideaverse", "Your whole vault as a ball of notes in 3D: drag to turn it, scroll to fly in", () => setView("ideaverse")));
+    em.after(mk("ideaverse", "Cosmos", "Your whole vault as a ball of notes in 3D: drag to turn it, scroll to fly in", () => setView("ideaverse")));
     for (const v of ["gravity"]) { const b = vs.querySelector(`button[data-v="${v}"]`); if (b) { b.hidden = true; b.classList.add("vburied"); } } }
   // it sits outside the scrolling tabs, beside More, so it never scrolls out of sight
   // every main tab gets the ▾ when its map has a menu (Gravity and Sensemaking have Years shown)
   for (const v_ of ["sense"]) { const b_ = root.querySelector(`#vseg button[data-v="${v_}"]`); if (b_ && !b_.querySelector(".vcar")) { b_.createSpan({ cls: "vcar", text: " ▾" }); b_.setAttribute("aria-haspopup", "true"); } }
   // the more-maps grid: the next eight map names in small type, two rows of four, between the tabs and More (Display → Show more map names)
   const vgrid = $("#vsegms").createDiv({ cls: "vgrid", attr: { role: "group", "aria-label": "More maps" } });
-  for (const [v, t, go] of [["gravity", "Gravity", () => setView("gravity")], ["graph", "Obsidian", () => setView("graph")], ["chord", "Chord", () => goChord("")], ["corona", "Corona", () => goChord("out")], ["tesla", "Tesla", () => goChord("in")], ["treemap", "Treemap", () => setView("treemap")], ["mosaic", "Mosaic", () => setView("mosaic")], ["shelf", "Bookshelf", () => setView("shelf")]]) {
+  for (const [v, t, go] of [["gravity", "Gravity", () => setView("gravity")], ["graph", "Graph", () => setView("graph")], ["chord", "Chord", () => goChord("")], ["corona", "Corona", () => goChord("out")], ["tesla", "Tesla", () => goChord("in")], ["treemap", "Treemap", () => setView("treemap")], ["mosaic", "Mosaic", () => setView("mosaic")], ["shelf", "Bookshelf", () => setView("shelf")]]) {
     const b = vgrid.createEl("button", { text: t, cls: "vg", attr: { type: "button" } }); b.dataset.vg = v; b.onclick = e => { e.stopPropagation(); closePops(); driftStop(); go(); if (typeof syncTB === "function") syncTB(); }; }
   const vcurSeg = $("#vsegms").createDiv({ cls: "seg vcurseg" }), vcur = vcurSeg.createEl("button", { cls: "vcur", attr: { id: "vcur", type: "button", "aria-haspopup": "true", "aria-expanded": "false" } });
   // every map, one click away: a ☰ before the tabs opens the full list (the four main maps first, then the rest)
@@ -5209,7 +5227,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     // Linear Calendar: up from Experimental → Linear, right after Base Builder
     { const lc = $("#golincal"); if (lc) gbb.after(lc); }
     // Graph: our take on the core graph view, first in the list
-    const gg = doc.createElement("button"); gg.className = "chip"; gg.id = "gograph"; gg.textContent = "Obsidian"; gg.setAttribute("aria-label", "Like Obsidian's graph view: notes pulled together by their links, drawn with the emergence symbols");
+    const gg = doc.createElement("button"); gg.className = "chip"; gg.id = "gograph"; gg.textContent = "Graph"; gg.setAttribute("aria-label", "Like Obsidian's graph view: notes pulled together by their links, drawn with the level symbols");
     for (const [id, v, label, tip] of [["gogravity", "gravity", "Gravity", "The five levels as rings: hubs at the center, unlinked notes on the rim"]]) {
       const b = doc.createElement("button"); b.className = "chip"; b.id = id; b.textContent = label; b.setAttribute("aria-label", tip); $("#gochord").before(b); b.onclick = () => { closePops(); driftStop(); setView(v); }; }
     { const co = $("#gocso"); if (co) co.textContent = "Corona"; const te = $("#gocsi"); if (te) { te.textContent = "Tesla"; te.hidden = false; te.classList.remove("gone"); } }
@@ -5230,7 +5248,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     r.oninput = () => { PPL.max = +r.value; win.clearTimeout(t_); t_ = win.setTimeout(() => { save("iv-pplmax", PPL.max); morph(true, () => fitTarget()); }, 180); }; }
   // Mosaic's own option: Emergence or Scattered
   { const ms_ = $("#laygrp").createDiv({ cls: "seg", attr: { id: "mosseg", role: "group", "aria-label": "Mosaic" } }); ms_.hidden = true;
-    for (const [v, t, tip] of [["emergence", "Emergence", "Level 5 at the heart, each level a frame around it"], ["scatter", "Scattered", "The same tiles, in no order"]]) {
+    for (const [v, t, tip] of [["emergence", "Levels", "Level 5 at the heart, each level a frame around it"], ["scatter", "Scattered", "The same tiles, in no order"]]) {
       const b = ms_.createEl("button", { text: t, attr: { type: "button", "data-ms": v, "aria-label": tip, "aria-pressed": String(MOS === v) } });
       b.onclick = e => { e.stopPropagation(); MOS = v; save("iv-mos", v); ms_.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.ms === v))); morph(true, () => fitTarget()); legend(); }; } }
   // Years shown: two handles from the first note's year to this year
@@ -5302,9 +5320,9 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
       sel_.onchange = () => { PSC()[key] = sel_.value; if (key === "height" && sel_.value) PSC().lastHeight = sel_.value; save(PK(key), sel_.value); morph(true, () => fitTarget()); legend(); };
       const rg = pc.createDiv({ cls: key === "lanes" ? "plchips" : "prng", attr: { id: "rng-" + key } }); rg.hidden = true; }
     pc.createDiv({ cls: "pn", attr: { id: "pimg" } }); }
-  const VN = () => ({ emergence: "Emergence", spacetime: "Space-Time", gravity: "Gravity", stars: "Starfield", sense: "Sensemakers", arc: "Arc",
+  const VN = () => ({ emergence: "Levels", spacetime: "Space-Time", gravity: "Gravity", stars: "Starfield", sense: "Work Modes", arc: "Arc",
     chord: CSPH === "out" ? "Corona" : CSPH === "in" ? "Tesla" : "Chord", quincunx: ({ square: "Square", hex: "Hexagon", mandala: "Mandala", octa: "Octahedron", shells: "Shells" })[GEO] || "Geometric",
-    shelf: "Bookshelf", posters: "Posters", builder: "Base Builder", graph: "Obsidian", ideaverse: "Ideaverse", mosaic: "Mosaic", people: "People", tree: "Tree", treemap: "Treemap", skyline: "Skyline", planet: "Planet · " + ({ flat: "Flat", table: "Tabletop", globe: "Globe" })[PMODE], lincal: "Linear Calendar", spiral: "Spiral", lifeline: "Lifeline" })[view] || view;
+    shelf: "Bookshelf", posters: "Posters", builder: "Base Builder", graph: "Graph", ideaverse: "Cosmos", mosaic: "Mosaic", people: "People", tree: "Tree", treemap: "Treemap", skyline: "Skyline", planet: "Planet · " + ({ flat: "Flat", table: "Tabletop", globe: "Globe" })[PMODE], lincal: "Linear Calendar", spiral: "Spiral", lifeline: "Lifeline" })[view] || view;
   const CORE = new Set(["emergence", "spacetime", "ideaverse", "stars", "sense"]);
   // the current map's menu: its variants (Emergence, Starfield) and the options that belong to it alone
   const mo = $("#vsegms").createDiv({ cls: "mspop mapopts", attr: { id: "mapopts", role: "dialog", "aria-label": "This map" } }); mo.hidden = true;
@@ -5331,7 +5349,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     sp.querySelectorAll('input[name="s3d"]').forEach(r => r.addEventListener("change", sync)); FUI.sfseg = sync; sync();
     const list = doc.createElement("div"); list.className = "sflist"; sp.appendChild(list); for (const el of [...sp.querySelectorAll(":scope > label.sfsw"), ...sp.querySelectorAll(":scope > label.minisw")]) list.appendChild(el); }
   const moL = mo.createDiv({ cls: "pt mol", text: "This map" }); mo.appendChild($("#laygrp")); const moNone = mo.createDiv({ cls: "pn", text: "Nothing to set on this map." });
-  // Show emojis for every other map that can show them (0.7.60): Linear Calendar, Emergence and Sensemakers keep theirs where they are
+  // Show emojis for every other map that can show them (0.7.60): Linear Calendar, Emergence and Work Modes keep theirs where they are
   const emoGen = () => emoOK() && !["lincal", "emergence", "spacetime", "sense"].includes(view);
   { const ea = mo.createDiv({ cls: "mosec emoany", attr: { id: "emoany" } }); ea.hidden = true; const r = ea.createEl("label", { cls: "mini lcemo emosw" }); const cb = r.createEl("input", { type: "checkbox" }); r.createEl("i", { cls: "sw" }); r.createSpan({ text: "Show emojis" });
     const st = ea.createDiv({ cls: "pn lcemost" }); const sync_ = () => { cb.checked = emoOn(view); }; { const f0 = FUI.emosw; FUI.emosw = () => { if (f0) f0(); sync_(); }; } FUI.emoany = () => { sync_(); st.setText(""); ea.hidden = !emoGen(); };
@@ -5446,7 +5464,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
         for (const v of b.views) { const key = b.path + "::" + v.name, l = det.createEl("label", { cls: "bqv" + (v.err ? " off" : "") }); l.title = v.err ? `The map can't read this view's filter yet (${v.err}).` : v.ctx ? "This view's filter depends on the note it sits in; here it follows the note you pick on the map." : "";
           const cb = l.createEl("input", { type: "checkbox" }); cb.checked = BQ.includes(key); cb.disabled = !!v.err && !cb.checked; l.createSpan({ cls: "t", text: v.name }); l.createSpan({ cls: "m", text: v.err ? "can't read" : v.ctx ? "follows your note" : v.type });
           cb.onchange = () => { BQ = cb.checked ? [...BQ, key] : BQ.filter(x => x !== key); save("iv-bq", BQ); applyBQ(); render(); }; } } };
-    const load = async () => { if (loading) return; loading = true; render(); try { BASES = await host.baseList(); } catch (e) { BASES = []; console.warn("Maps of the Ideaverse: couldn't list bases", e); } loading = false; render(); };
+    const load = async () => { if (loading) return; loading = true; render(); try { BASES = await host.baseList(); } catch (e) { BASES = []; console.warn("Exploration Maps: couldn't list bases", e); } loading = false; render(); };
     bq.addEventListener("input", render); bclr.onclick = e => { e.stopPropagation(); BQ = []; save("iv-bq", BQ); applyBQ(); render(); };
     FI.b.addEventListener("click", () => { void load(); });
     // work out the notes the picked views hold; views that follow "this" note use the note you've picked on the map (and wait for one)
@@ -5609,7 +5627,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     const recDot = CP.b.createSpan({ cls: "tbadge capdot" }); recDot.hidden = true;
     CP.p.classList.add("cappop"); CP.p.createDiv({ cls: "pt", text: "Capture" });
     // one click: a 10-second clip of the Ideaverse globe turning, in the shape chosen below, then back to the map you were on
-    const shareB = CP.p.createEl("button", { cls: "chip on capshare", text: "Share my ideaverse", attr: { type: "button", title: "Records 10 seconds of the Ideaverse map turning, ready to post" } });
+    const shareB = CP.p.createEl("button", { cls: "chip on capshare", text: "Share my vault", attr: { type: "button", title: "Records 10 seconds of the Cosmos map turning, ready to post" } });
     const row = CP.p.createDiv({ cls: "caprow" }); const shotB = row.createEl("button", { cls: "chip on", text: "Picture", attr: { type: "button", title: "A PNG of the map as it is now" } }), clipB = row.createEl("button", { cls: "chip on", text: "Clip", attr: { type: "button", title: "A short video of the map moving" } });
     const segOf = (label, key, opts, cur, onSet) => { const w = CP.p.createDiv({ cls: "capopt" }); w.createSpan({ cls: "capl", text: label }); const sg = w.createDiv({ cls: "seg" });
       for (const [v, t] of opts) { const b = sg.createEl("button", { text: t, attr: { type: "button", "aria-pressed": String(v === cur) } }); b.onclick = e => { e.stopPropagation(); sg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); onSet(v); save(key, v); }; } };
@@ -5620,12 +5638,12 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     segOf("While it records", "iv-capstart", [["orbit", "Orbit"], ["timelapse", "Timelapse"], ["none", "Nothing"]], CAP.start, v => CAP.start = v);
     const sw = (label, key, val, onSet, tip) => { const l = CP.p.createEl("label", { cls: "pmaps capsw", attr: { title: tip } }); const c = l.createEl("input", { type: "checkbox" }); c.checked = val; l.createEl("i", { cls: "sw" }); l.createSpan({ text: label }); c.onchange = () => { onSet(c.checked); save(key, c.checked); }; l.onclick = e => e.stopPropagation(); };
     sw("Hide note titles", "iv-caphide", CAP.hide, v => CAP.hide = v, "Leave every title off the capture, for sharing a vault you'd rather keep private");
-    sw("Add a small credit", "iv-capcredit", CAP.credit, v => CAP.credit = v, "Writes Maps of the Ideaverse in the corner");
+    sw("Add a small credit", "iv-capcredit", CAP.credit, v => CAP.credit = v, "Writes Exploration Maps in the corner");
     CP.p.createDiv({ cls: "pn", text: "Saved to your attachments folder. Then copy it, or post it with a ready caption." });
     opener(CP);
     // the card that appears after a capture
     let card = null; const cardOut = () => { if (card) { card.remove(); card = null; } };
-    let capVN = ""; const caption = () => `My ideaverse as ${capVN || VN()}, made with Maps of the Ideaverse for Obsidian: https://github.com/nickmilo/ideaverse-maps`;
+    let capVN = ""; const caption = () => `My vault as ${capVN || VN()}, made with Exploration Maps for Obsidian: https://github.com/motion2082/exploration-maps`;
     const showCard = (path, blob, kind) => { cardOut(); card = cv.parentElement.createDiv({ cls: "capcard" }); const url = URL.createObjectURL(blob);
       if (kind === "image") card.createEl("img", { attr: { src: url, alt: "The capture" } }); else { const v = card.createEl("video", { attr: { src: url, autoplay: "", loop: "", muted: "", playsinline: "" } }); v.muted = true; }
       const tx = card.createDiv({ cls: "capt" }); tx.createEl("b", { text: kind === "image" ? "Picture saved" : "Clip saved" }); tx.createSpan({ cls: "capp", text: path });
@@ -5640,7 +5658,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
       if (host.openFile) mk("Open", () => host.openFile(path), "Open it in Obsidian");
       const x = card.createEl("button", { cls: "capx", text: "×", attr: { type: "button", "aria-label": "Close" } }); x.onclick = e => { e.stopPropagation(); URL.revokeObjectURL(url); cardOut(); }; };
     const stamp = () => { const d = new Date(), z = n_ => String(n_).padStart(2, "0"); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
-    const saveIt = async (blob, ext, kind, vn = VN()) => { if (!host.saveCapture) return; capVN = vn; const name = `${stamp()} Maps of the Ideaverse${vn === "Ideaverse" ? "" : " " + vn}.${ext}`.replace(/[\\/:*?"<>|]/g, "-");
+    const saveIt = async (blob, ext, kind, vn = VN()) => { if (!host.saveCapture) return; capVN = vn; const name = `${stamp()} Exploration Maps${vn === "Cosmos" ? "" : " " + vn}.${ext}`.replace(/[\\/:*?"<>|]/g, "-");
       try { const path = await host.saveCapture(name, await blob.arrayBuffer()); showCard(path, blob, kind); } catch (err) { showCard("Couldn't save: " + (err && err.message || err), blob, kind); } };
     shotB.onclick = e => { e.stopPropagation(); closePops(); CAP.on = true; render(); const out = capCanvas(); capCompose(out); CAP.on = false; draw(); out.toBlob(blob => { if (blob) void saveIt(blob, "png", "image"); }, "image/png"); };
     // a clip: the canvas as a video stream, redrawn every frame while it records; stops after the length chosen, or when the Timelapse ends
@@ -5687,7 +5705,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     opener(TH); seg.addEventListener("click", e => { if (e.target.closest("button")) closePops(); }); }
   const hc = root.querySelector("header .hcol"); if (hc) right.appendChild(hc);
   const ARR_OFF = new Set(["ideaverse", "people", "mosaic", "graph", "posters", "builder", "spacetime", "sense", "arc", "chord", "quincunx", "shelf", "tree", "treemap", "skyline", "lincal", "spiral", "lifeline", "planet"]);
-  // a narrow map: the main tabs that don't fit fold into More (from the right: Sensemakers, then Starfield, then Ideaverse), which becomes More maps, with them at the top
+  // a narrow map: the main tabs that don't fit fold into More (from the right: Work Modes, then Starfield, then Cosmos), which becomes More maps, with them at the top
   // a small Lucide icon before each map's name in the maps menu
   const MICON = { emergence: "layers", ideaverse: "orbit", stars: "sparkles", sense: "compass", gogravity: "circle-dot", gograph: "gem", gochord: "aperture", gocso: "sun", gocsi: "zap",
     gotreemap: "layout-dashboard", gomosaic: "layout-grid", goshelf: "library", gobuilder: "table-2", golincal: "calendar-range", goposters: "image", gopeople: "users",
@@ -5695,8 +5713,8 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     goplflat: "map", gopltable: "table", goplglobe: "earth", gotree: "tree-deciduous", goskyline: "building-2" };
   const micon = (el, name) => { if (!name || el.querySelector(":scope > .mic")) return; const s_ = doc.createElement("span"); s_.className = "mic"; s_.setAttribute("aria-hidden", "true"); setIcon(s_, name); el.prepend(s_); };
   const MAIN = [...$("#vseg").querySelectorAll(":scope > button[data-v]")].filter(b => !b.hidden && !b.classList.contains("vburied"));
-  // the list: "Maps of the Ideaverse", the four main maps, a thin line, then the rest
-  const FOLD_T = new Set(), vfold = doc.createElement("div"); vfold.className = "vfold"; { const pop = $("#vmorepop"), t0 = pop.querySelector(":scope > .pt"); if (t0) { t0.setText("Maps of the Ideaverse"); t0.after(vfold); } else pop.prepend(vfold); }
+  // the list: "Exploration Maps", the four main maps, a thin line, then the rest
+  const FOLD_T = new Set(), vfold = doc.createElement("div"); vfold.className = "vfold"; { const pop = $("#vmorepop"), t0 = pop.querySelector(":scope > .pt"); if (t0) { t0.setText("Exploration Maps"); t0.after(vfold); } else pop.prepend(vfold); }
   const tabV = v => v === "spacetime" ? "emergence" : v;
   const fitTabs = () => { const vs = $("#vseg"), mo = $("#vmore"), sm = $("#vsegms"), tl = sm.parentElement; if (!vs || !sm.isConnected || !sm.clientWidth) return;
     const over = () => sm.scrollWidth > sm.clientWidth + 1 || tl.scrollWidth > tl.clientWidth + 1;
@@ -5756,7 +5774,7 @@ let twOn = pref("iv-twinkle", true) !== false, twWake = () => {};
     const chipFor = () => { const id = { gravity: "gogravity", graph: "gograph", treemap: "gotreemap", mosaic: "gomosaic", shelf: "goshelf", builder: "gobuilder", lincal: "golincal", spiral: "gospiral", lifeline: "golifeline",
         tree: "gotree", skyline: "goskyline", posters: "goposters", people: "gopeople", chord: CSPH === "out" ? "gocso" : CSPH === "in" ? "gocsi" : "gochord", quincunx: "gogeo" + GEO, planet: "gopl" + PMODE }[view];
       return id ? MP.querySelector("#" + id) : MP.querySelector(`.vfoldb[data-v="${tabV(view)}"]`); };
-    // this map's settings: its variants (Emergence, Starfield, Sensemakers) and its own options; false when there are none
+    // this map's settings: its variants (Emergence, Starfield, Work Modes) and its own options; false when there are none
     // every map's gear in Starfield's tighter look (0.8.13, Nick: "apply to the other map settings"): a group of choices becomes one row with
     // the chosen one's line beneath it, and Off | On rows become plain switches; run each time the gear opens, so it follows any change
     const tightenMO = () => { const mo_ = $("#mapopts"); if (!mo_) return;

@@ -1,4 +1,4 @@
-/* Maps of the Ideaverse: the scan. Reads every note, measures its links, and gives it an Idea Emergence level (1-5).
+/* Exploration Maps: the scan. Reads every note, measures its links, and gives it an Idea Emergence level (1-5).
    A port of the standalone map's scanner.py: same rules, same numbers. It never writes to notes.
 
    The vault comes in through a small adapter, so the same code runs inside Obsidian and in tests:
@@ -57,6 +57,8 @@ export const DEFAULTS = {
   l5Top: 0,               // the N highest-scoring notes become Level 5; 0 = scale with the vault
   l4MapLinks: 3, l3MinOut: 10, l3Density: 0.5, promoteL4: 6.5, promoteL3: 5.5, navJaccard: 0.7,
   weights: { body_in: 1.0, body_out: 0.6, up_in: 0.3, both: 0.8, coll_in: 0.0 },
+  // Work Modes and ARC: which folders hold journals, quick captures, sources, main notes and things you make (Nick's LYT folders by default)
+  senseFolders: { journal: ["Calendar"], inbox: ["+"], sources: ["Atlas/Sources", "Clippings", "Readwise"], library: ["Atlas"], projects: ["Efforts"] },
 };
 
 const under = (rel, prefixes) => prefixes.some(p => p && (rel === p || rel.startsWith(p + "/")));
@@ -170,11 +172,12 @@ export async function scanVault(adapter, settings, onProgress) {
   // which properties are up, related, collections and rank: the names in Settings (any capitalization), first match wins for rank
   const nm = (l, d) => (Array.isArray(l) && l.length ? l : d).map(x => String(x).trim().toLowerCase()).filter(Boolean);
   const UPK = nm(C.upProps, ["up"]), RLK = nm(C.relatedProps, ["related"]), CLK = nm(C.collectionProps, ["collections"]), RKK = nm(C.rankProps, ["rank"]), ROLE = new Set([...UPK, ...RLK, ...CLK]);
-  const roles = e => { if (!e || !e.PL) return e; const U = [], R_ = [], P = [], Cs = []; for (const k of Object.keys(e.PL)) { const lk = k.toLowerCase(), l = e.PL[k];
-      if (UPK.includes(lk)) U.push(...l); if (RLK.includes(lk)) R_.push(...l); if (CLK.includes(lk)) Cs.push(...l); if (!ROLE.has(lk)) P.push(...l); }
+  const roles = e => { if (!e || !e.PL) return e; const U = [], R_ = [], PK = [], Cs = []; for (const k of Object.keys(e.PL)) { const lk = k.toLowerCase(), l = e.PL[k];
+      if (UPK.includes(lk)) U.push(...l); if (RLK.includes(lk)) R_.push(...l); if (CLK.includes(lk)) Cs.push(...l); if (!ROLE.has(lk)) PK.push([k, l]); }
     let rank = ""; if (e.num) { const nk = {}; for (const k of Object.keys(e.num)) nk[k.toLowerCase()] = e.num[k]; for (const k of RKK) if (nk[k] != null) { rank = nk[k]; break; } }
-    return { ...e, U, R: R_, P, C: Cs, rank }; };
-  const mdl = e => e && { ...e, B: mdk(e.B), U: mdk(e.U), R: mdk(e.R), P: mdk(e.P), C: mdk(e.C) };
+    return { ...e, U, R: R_, PK, C: Cs, rank }; };
+  const mdl = e => e && { ...e, B: mdk(e.B), U: mdk(e.U), R: mdk(e.R), PK: (e.PK || []).map(([k, l]) => [k, mdk(l)]), C: mdk(e.C) };
+  const propKey = new Map();   // note → (linked note → the property that links them), so the legend can name the properties this vault links with
   for (const p of paths) {
     const e = mdl(roles(ex.get(p))); if (!e) continue;
     const colls = e.C.map(x => base(x.trim()));
@@ -189,7 +192,8 @@ export async function scanVault(adapter, settings, onProgress) {
       if (q && q !== p) { if (isPack(p) !== isPack(q)) { add(cross, p, q + "\u0000" + (key === "related" ? 4 : 1)); continue; }
         add(upOut, p, q); add(upIn, q, p); add(key === "related" ? relOut : upkOut, p, q); }
     }
-    for (const l of e.P) { const q = resolve(l, p); if (q && q !== p) { add(propOut, p, q); add(propIn, q, p); } }   // any property's links (topics, source, people…) make both notes linked
+    for (const [k, ls] of e.PK) for (const l of ls) { const q = resolve(l, p); if (q && q !== p) { add(propOut, p, q); add(propIn, q, p);   // any property's links (topics, source, people…) make both notes linked
+      let m = propKey.get(p); if (!m) propKey.set(p, m = new Map()); if (!m.has(q)) m.set(q, k); } }
     for (const l of e.C) { const q = resolve(l, p); if (q && q !== p && (!isPack(p) || isPack(q))) { add(collIn, q, p); add(collOut, p, q); } }
     const props = Object.assign({}, e.props); { const nm = {}; for (const k of C.axisProps || []) if (e.num && e.num[k] != null) nm[k] = e.num[k]; if (Object.keys(nm).length) props.n = nm; }
     const lines = { length: e.lines }, linkLines = e.linkLines;
@@ -243,13 +247,14 @@ export async function scanVault(adapter, settings, onProgress) {
   const keep = [...info.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const idx = new Map(keep.map((p, j) => [p, j])), keepSet = new Set(keep);
   const sorted = s => [...s].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  const edges = [];
+  const edges = [], propTally = new Map();   // property name → how many links on the map it makes
   for (const p of keep) {
     const bo = get(bodyOut, p), uo = get(upOut, p);
     for (const q of sorted(bo)) if (idx.has(q)) edges.push([idx.get(p), idx.get(q), get(upkOut, p).has(q) ? 1 : get(relOut, p).has(q) ? 4 : nav.has(NK(p, q)) ? 2 : 0]);
     for (const q of sorted(uo)) if (!bo.has(q) && idx.has(q)) edges.push([idx.get(p), idx.get(q), get(upkOut, p).has(q) ? 1 : 4]);
     for (const qk of sorted(get(cross, p))) { const [q, kk] = qk.split("\u0000"); if (idx.has(q)) edges.push([idx.get(p), idx.get(q), +kk]); }
-    for (const q of sorted(get(propOut, p))) if (!bo.has(q) && !uo.has(q) && idx.has(q)) edges.push([idx.get(p), idx.get(q), 5]);
+    for (const q of sorted(get(propOut, p))) if (!bo.has(q) && !uo.has(q) && idx.has(q)) { edges.push([idx.get(p), idx.get(q), 5]);
+      const k = propKey.has(p) && propKey.get(p).get(q); if (k) propTally.set(k, (propTally.get(k) || 0) + 1); }
   }
   const cnt = s => { let c = 0; for (const x of s) if (keepSet.has(x)) c++; return c; };
   const nodes = keep.map(p => { const i = info.get(p), parts = p.split("/");
@@ -291,7 +296,8 @@ export async function scanVault(adapter, settings, onProgress) {
 
   return { generated: new Date().toISOString().slice(0, 19), vault: adapter.vaultName || "Vault",
     settings: { axis_props: C.axisProps || [], date_props: C.dateProps || ["created"], exclude: C.exclude, moc_only: C.privateFolders, home_notes: C.homeNotes, l5_top: L5, l4_map_links: C.l4MapLinks, l3_min_out: C.l3MinOut,
-      l3_density: C.l3Density, promote_l4: C.promoteL4, promote_l3: C.promoteL3, nav_jaccard: C.navJaccard, weights: W, map_folders: C.mapFolders,
+      l3_density: C.l3Density, promote_l4: C.promoteL4, promote_l3: C.promoteL3, nav_jaccard: C.navJaccard, weights: W, map_folders: C.mapFolders, sense_folders: Object.assign({}, DEFAULTS.senseFolders, C.senseFolders || {}),
       map_collections: C.mapCollections, packs: PACKS, archive: ARCHIVE },
+    prop_names: [...propTally].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 4).map(([k]) => k),   // the properties that make the most of the map's property links
     nodes, edges, unresolved, dropped: dropped.length };
 }

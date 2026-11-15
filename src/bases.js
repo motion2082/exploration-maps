@@ -1,7 +1,7 @@
 import * as obsidian from "obsidian";
 import { mountInto, openBeside } from "./view.js";
 
-/* Maps of the Ideaverse as a Bases view: the map, showing only the notes the base's query returns.
+/* Exploration Maps as a Bases view: the map, showing only the notes the base's query returns.
    Levels and scores still come from the whole vault, so a hub stays a hub inside a project. Needs Obsidian 1.10+. */
 export const BASES_VIEW = "ideaverse-map";
 const SHARED = new Set(["iv-packs1", "iv-tcol", "iv-pcol", "iv-acol", "iv-anim", "iv-legend", "iv-hcol", "iv-views", "iv-tours", "iv-subsoff", "iv-emofold"]);
@@ -30,7 +30,7 @@ const makeView = BasesView => class MapBasesView extends BasesView {
         if (JSON.stringify(value) === JSON.stringify(Object.prototype.hasOwnProperty.call(this.own, key) ? this.own[key] : main.get(key))) return;
         if (value === undefined) delete this.own[key]; else this.own[key] = value;
         window.clearTimeout(this.saveTimer);
-        this.saveTimer = window.setTimeout(() => { load(); try { this.config.set(KEY, JSON.parse(JSON.stringify(this.own))); } catch (e) { console.warn("Maps of the Ideaverse: couldn't save this base's map settings", e); } }, 1000);
+        this.saveTimer = window.setTimeout(() => { load(); try { this.config.set(KEY, JSON.parse(JSON.stringify(this.own))); } catch (e) { console.warn("Exploration Maps: couldn't save this base's map settings", e); } }, 1000);
       },
     };
   }
@@ -66,7 +66,7 @@ export function registerBases(plugin) {
   if (typeof plugin.registerBasesView !== "function" || !obsidian.BasesView) return false;   // Obsidian before 1.10
   const MapBasesView = makeView(obsidian.BasesView), views = plugin.basesViews = new Set();
   return plugin.registerBasesView(BASES_VIEW, {
-    name: "Maps of the Ideaverse", icon: "orbit",
+    name: "Exploration Maps", icon: "orbit",
     factory: (controller, containerEl) => { const v = new MapBasesView(controller, containerEl, plugin); views.add(v); v.register(() => views.delete(v)); return v; },
   });
 }

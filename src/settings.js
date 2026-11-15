@@ -71,6 +71,19 @@ export class MapsSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Markdown links").setDesc("Also count markdown-style links to notes, [text](folder/Note.md), the kind some tools write. Off by default: most vaults link with [[wikilinks]].")
       .addToggle(t => t.setValue(!!s.mdLinks).onChange(async v => { s.mdLinks = v; await save(); }));
 
+    // Work Modes (and ARC): which folders mean what. Saved under senseFolders; a field left as it came keeps the default.
+    new Setting(containerEl).setName("Work Modes folders").setHeading()
+      .setDesc("Work Modes places each note by what it's doing: taking in or putting out, loose or structured. These folders give it the strongest clues. ARC uses them too. One folder per line. Rescan after changing.");
+    const sf = () => (s.senseFolders ||= JSON.parse(JSON.stringify(DEFAULTS.senseFolders)));
+    const senseList = (name, desc, key) => { const st = new Setting(containerEl).setName(name).setDesc(desc); st.addTextArea(t => t
+      .setPlaceholder((DEFAULTS.senseFolders[key] || []).join("\n")).setValue((sf()[key] || []).join("\n"))
+      .onChange(async v => { sf()[key] = list(v); check(st, sf()[key]); await save(); })); check(st, sf()[key] || []); };
+    senseList("Journal", "Daily notes and journals. Pulls notes toward Thinking; daily notes most of all.", "journal");
+    senseList("Inbox", "Quick captures you haven't sorted yet. Pulls notes toward loose.", "inbox");
+    senseList("Sources", "Clippings, highlights, and book, video and chat notes. Pulls notes toward taking in, and a little toward structured.", "sources");
+    senseList("Library", "Your main notes and maps. A small pull toward taking in.", "library");
+    senseList("Projects", "Things you make for others: projects, scripts, posts. Pulls notes toward putting out (Drafting and Shipping).", "projects");
+
     new Setting(containerEl).setName("Emoji labels").setHeading();
     new Setting(containerEl).setName("Base").setDesc("A base with a column of emojis per note (a formula that picks one by folder, say). Linear Calendar can show them beside the dots. Empty: a base called Recents, if there is one.")
       .addText(t => t.setPlaceholder("Atlas/Bases/Recents.base").setValue(s.emojiBase || "").onChange(async v => { s.emojiBase = v.trim(); await p.saveSettings(); }));
@@ -111,7 +124,7 @@ export class MapsSettingTab extends PluginSettingTab {
       .setPlaceholder("Folder/path").setValue(s.viewsFolder || "")
       .onChange(async v => { const x = v.trim(); s.viewsFolder = x === "/" ? "/" : list(x)[0] || ""; await p.saveSettings(); }));
 
-    new Setting(containerEl).setName("Idea Emergence levels").setHeading();
+    new Setting(containerEl).setName("Levels").setHeading();
     new Setting(containerEl).setName("Home notes").setDesc("Always Level 5. Note names, one per line.").addTextArea(t => t
       .setPlaceholder("Home").setValue((s.homeNotes || []).join("\n")).onChange(async v => { s.homeNotes = list(v); await save(); }));
     folderList("Map folders", "Every note in these folders counts as a map (Level 3 or higher). Notes with MOC in the title, or made mostly of links, count too.", "mapFolders");

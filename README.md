@@ -16,7 +16,7 @@ Made by [Nick Milo](https://www.linkingyourthinking.com) of Linking Your Thinkin
 
 Eighteen views of one real vault, Nick's own, across the three themes (Play, Soft Paper and LYT Mode).
 
-![Gallery: Ideaverse 3D, Starfield in Focus mode, Base Builder's movie posters, Sensemakers with emojis, Emergence with Pace Layers selected, and Starfield around Triangulation](docs/gallery-1.webp)
+![Gallery: Ideaverse 3D, Starfield in Focus mode, Base Builder's movie posters, Work Modes with emojis, Emergence with Pace Layers selected, and Starfield around Triangulation](docs/gallery-1.webp)
 
 ![Gallery: Treemap, Mosaic with Pace Layers' links, Spiral, Corona, Tesla around LYT Book Home, and Chord](docs/gallery-2.webp)
 
@@ -24,7 +24,7 @@ Eighteen views of one real vault, Nick's own, across the three themes (Play, Sof
 
 ## The maps
 
-The toolbar starts with one button: **☰** and the name of the map you're on. Click it for the maps menu: every map with a small icon, the four main ones first (Emergence, Ideaverse, Starfield and Sensemakers). It stays open as you pick, so you can hop from map to map; click anywhere else to close it. The gear right after it opens the current map's own settings (its variants and options), on maps that have any. Quick keys along the top row of the keyboard jump to the maps in the list: **1–4** the main maps, **5** Gravity, **6** Obsidian, **7** Treemap, **8** Mosaic, **9** Bookshelf, **-** Tesla, **=** Corona and **[** Chord; Linear Calendar is always **0** and Base Builder always **\\**, wherever they sit in the list; each one's key shows at the end of its row. Letter keys work the map itself: **O** starts and stops Orbit, and **J**, **K** and **L** pick its three speeds (Earth, Mercury and LYT Speed on a globe; Calm, Slow and Lively on a flat map) and start it; **A** shows or tucks the Animations; **W** starts and stops Wander Mode; **T** the Timelapse; **S** turns Sync with the editor on or off; **F** opens Filter; **N** turns Focus on or off; **V** opens Saved views. Press **?** (or Display → Keyboard shortcuts) for a card of every key, and each button's hover hint ends with its key. Turn on **Display → Show more maps in the header** to list eight more of them by name in small type next to the button, whenever the row has room (Find shrinks to its magnifying glass first).
+The toolbar starts with one button: **☰** and the name of the map you're on. Click it for the maps menu: every map with a small icon, the four main ones first (Emergence, Ideaverse, Starfield and Work Modes). It stays open as you pick, so you can hop from map to map; click anywhere else to close it. The gear right after it opens the current map's own settings (its variants and options), on maps that have any. Quick keys along the top row of the keyboard jump to the maps in the list: **1–4** the main maps, **5** Gravity, **6** Obsidian, **7** Treemap, **8** Mosaic, **9** Bookshelf, **-** Tesla, **=** Corona and **[** Chord; Linear Calendar is always **0** and Base Builder always **\\**, wherever they sit in the list; each one's key shows at the end of its row. Letter keys work the map itself: **O** starts and stops Orbit, and **J**, **K** and **L** pick its three speeds (Earth, Mercury and LYT Speed on a globe; Calm, Slow and Lively on a flat map) and start it; **A** shows or tucks the Animations; **W** starts and stops Wander Mode; **T** the Timelapse; **S** turns Sync with the editor on or off; **F** opens Filter; **N** turns Focus on or off; **V** opens Saved views. Press **?** (or Display → Keyboard shortcuts) for a card of every key, and each button's hover hint ends with its key. Turn on **Display → Show more maps in the header** to list eight more of them by name in small type next to the button, whenever the row has room (Find shrinks to its magnifying glass first).
 
 ### Emergence
 
@@ -56,12 +56,12 @@ Starfield's menu lets you switch to 3D, set how strongly the galaxies glow (Clea
 ![Starfield in 3D: galaxies of notes around their hubs](docs/starfield.png)
 <sub>Starfield in 3D, LYT Mode. Each galaxy is a hub plus the notes that reach it first.</sub>
 
-### Sensemakers
+### Work Modes
 
-Sensemakers sorts your notes into four ways of working with ideas. A Synthesizer reflects from the top down, a Producer expresses from the top down, an Inner Guide reflects from the bottom up, and a Creative expresses from the bottom up. Each note is placed by simple rules about where it lives and how it's written, such as its folder, its headings and lists, its checkboxes and due dates, and whether it's written in the first person. No AI is involved. Click a note to see exactly which clues placed it. **Show emojis** in its gear puts each note's emoji in place of its dot, as on Linear Calendar.
+Work Modes sorts your notes into four ways of working with ideas. Thinking is loose and taking in, Organising is structured and taking in, Drafting is loose and putting out, and Shipping is structured and putting out. Each note is placed by simple rules about where it lives and how it's written, such as its folder, its headings and lists, its checkboxes and due dates, and whether it's written in the first person. No AI is involved. Click a note to see exactly which clues placed it. **Show emojis** in its gear puts each note's emoji in place of its dot, as on Linear Calendar.
 
-![Sensemakers: the four quadrants, with a note's reasons in the panel](docs/sensemaking.png)
-<sub>Sensemakers in the Soft Paper theme. The panel explains why this note counts as a Synthesizer.</sub>
+![Work Modes: the four quadrants, with a note's reasons in the panel](docs/sensemaking.png)
+<sub>Work Modes in the Soft Paper theme. The panel explains why this note counts as Organising.</sub>
 
 ## More maps
 
@@ -128,7 +128,7 @@ Turn on **Display → Edit mode (experimental)** and pick a note in Starfield or
 
 Linear Calendar shows a year as twelve rows, one for each month, with every day as a box and the weeks lined up down the page. The notes you made on a day fill its box, and each one sits at its own spot so the names of neighboring days don't run into each other. Drag the **Years** slider in its menu to show one year or several, stacked one above the other, and use ‹ › to move a year at a time. It opens in **Half months**, where each month takes two rows, the 1st to the 15th and then the 16th to the end, so the calendar fits a narrow pane. Switch to **Whole months** for one row a month with the weeks lined up; the map remembers your choice.
 
-Turn on **Show emojis** under the gear and each note's emoji takes the place of its dot, bigger the higher its level (a note with no emoji keeps its dot). The same switch is in the gear of Emergence, Sensemakers, Gravity, Starfield, Obsidian, Ideaverse, Chord and Tesla (one switch for both), Spiral, Lifeline and Tree; each map remembers its own. Give your folders their emojis in **Display → Assign emojis**: pick one for a folder and every note in it gets it, and a subfolder's emoji wins over its folder's. They're kept with your saved views, in the views file. A note whose folders have none can still take one from a column of one of your bases: by default, the first column of a base called Recents. Choose another base or column in **Settings → Emoji labels**, and **Copy emojis from a base column** (at the bottom of Assign emojis) turns that column into folder emojis.
+Turn on **Show emojis** under the gear and each note's emoji takes the place of its dot, bigger the higher its level (a note with no emoji keeps its dot). The same switch is in the gear of Emergence, Work Modes, Gravity, Starfield, Obsidian, Ideaverse, Chord and Tesla (one switch for both), Spiral, Lifeline and Tree; each map remembers its own. Give your folders their emojis in **Display → Assign emojis**: pick one for a folder and every note in it gets it, and a subfolder's emoji wins over its folder's. They're kept with your saved views, in the views file. A note whose folders have none can still take one from a column of one of your bases: by default, the first column of a base called Recents. Choose another base or column in **Settings → Emoji labels**, and **Copy emojis from a base column** (at the bottom of Assign emojis) turns that column into folder emojis.
 
 ### Posters (under Experimental → Specialized)
 
@@ -165,8 +165,8 @@ These maps are still taking shape. **Geometric** places your top 25 notes in pat
 
 Open **Animations** in the bottom left, choose **Timelapse**, and press ▶ to replay your vault month by month or week by week. You'll see new notes arrive, and you'll see notes climb to higher levels as they gain links. You can click a note at any point to pause and look around, then press Resume to carry on.
 
-![Sensemakers time-lapse: new notes swirl out to their places](docs/swirl.gif)
-<sub>The time-lapse on Sensemakers, with each week's new notes spiralling out to where they belong.</sub>
+![Work Modes time-lapse: new notes swirl out to their places](docs/swirl.gif)
+<sub>The time-lapse on Work Modes, with each week's new notes spiralling out to where they belong.</sub>
 
 ## How notes get their level
 

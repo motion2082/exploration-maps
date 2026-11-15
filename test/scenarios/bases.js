@@ -1,4 +1,4 @@
-// A base switched to the Maps of the Ideaverse view: the map shows only the base's notes
+// A base switched to the Exploration Maps view: the map shows only the base's notes
 module.exports = async ({ page, sleep, shot }) => {
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   await sleep(2000);

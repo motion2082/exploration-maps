@@ -1,4 +1,4 @@
-/* Maps of the Ideaverse: read Obsidian bases (.base files) and work out which notes each view holds, so the map can filter by them.
+/* Exploration Maps: read Obsidian bases (.base files) and work out which notes each view holds, so the map can filter by them.
    Obsidian doesn't let a plugin run a base's query without opening it, so this reads the base's filters and applies them itself.
    It covers the filter language most bases use (file.*, properties, link(), list and text methods, if(), formulas, this.file);
    anything it can't read marks that view as unreadable rather than guessing. */

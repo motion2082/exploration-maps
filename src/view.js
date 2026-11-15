@@ -11,7 +11,7 @@ class FolderPicker extends FuzzySuggestModal {
     this.setInstructions([{ command: "↵", purpose: "choose" }, { command: "esc", purpose: "cancel" }]);
   }
   onOpen() { super.onOpen();
-    const note = createDiv({ cls: "ivm-pick-note", text: "You can change this later in Settings → Maps of the Ideaverse → Saved views and tours." });
+    const note = createDiv({ cls: "ivm-pick-note", text: "You can change this later in Settings → Exploration Maps → Saved views and tours." });
     const box = this.inputEl.closest(".prompt-input-container") || this.inputEl.parentElement; box.after(note); }
   getItems() { return this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder); }
   getItemText(f) { return f.create ? `+ New folder: ${f.create}` : f.isRoot() ? "/ (vault root)" : f.path; }
@@ -38,7 +38,7 @@ export class MapView extends ItemView {
     this.noteLeaf = null;   // where notes open from the map: one tab beside it, reused
   }
   getViewType() { return VIEW_TYPE; }
-  getDisplayText() { return "Maps of the Ideaverse"; }
+  getDisplayText() { return "Exploration Maps"; }
   getIcon() { return "orbit"; }
 
   async onOpen() { await this.reload(); }
@@ -96,7 +96,7 @@ export async function mountInto(owner, el, opts) {
   try {
     graph = await plugin.getGraph((done, total) => { bar.setCssProps({ "--p": String(done / Math.max(1, total)) }); msg.setText(`${done.toLocaleString()} of ${total.toLocaleString()} notes read`); });
   } catch (e) {
-    console.error("Maps of the Ideaverse: scan failed", e);
+    console.error("Exploration Maps: scan failed", e);
     wait.empty(); wait.createDiv({ cls: "ivm-loading-t", text: "The scan failed. See the developer console for details." });
     return null;
   }
@@ -135,7 +135,7 @@ export async function mountInto(owner, el, opts) {
       for (const b of list) { const r = await q.readBase(b.path); b.err = r ? r.err || null : "the file"; b.views = r ? r.views.map(v => ({ name: v.name, type: v.type, err: v.err, ctx: v.ctx })) : []; } return list; },
     baseNotes: async (path, viewName, thisPath) => { const q = plugin.baseQ || (plugin.baseQ = new BaseQ(app)); q.back = null; const r = await q.readBase(path); if (!r) return { err: "the base is gone" };
       const v = r.views.find(x => x.name === viewName); if (!v) return { err: "the view is gone" }; if (v.err) return { err: v.err };
-      try { return { paths: [...q.run(v, thisPath || null)] }; } catch (e) { if (e instanceof NeedThis) return { need: "this" }; if (e instanceof Unsupported) { v.err = e.what; return { err: e.what }; } console.warn("Maps of the Ideaverse: couldn't read the base", path, e); return { err: String(e && e.message || e) }; } },
+      try { return { paths: [...q.run(v, thisPath || null)] }; } catch (e) { if (e instanceof NeedThis) return { need: "this" }; if (e instanceof Unsupported) { v.err = e.what; return { err: e.what }; } console.warn("Exploration Maps: couldn't read the base", path, e); return { err: String(e && e.message || e) }; } },
     // emoji labels: one column of a base (by default the ✨ column of a base called Recents), read for every note
     emojis: async () => { const q = plugin.baseQ || (plugin.baseQ = new BaseQ(app)); const st = plugin.settings; let path = st.emojiBase || "";
       if (!path) { const f = app.vault.getFiles().find(x => x.extension === "base" && x.basename.toLowerCase() === "recents"); path = f ? f.path : ""; }

@@ -13,7 +13,7 @@ export default class IdeaverseMapsPlugin extends Plugin {
     this.dirty = false;         // notes changed since the last scan
 
     this.registerView(VIEW_TYPE, leaf => new MapView(leaf, this));
-    this.addRibbonIcon("orbit", "Open Maps of the Ideaverse", () => { void this.openMap(); });
+    this.addRibbonIcon("orbit", "Open Exploration Maps", () => { void this.openMap(); });
     this.addCommand({ id: "open", name: "Open map", callback: () => { void this.openMap(); } });
     // only offered while a map is open
     this.addCommand({ id: "follow", name: "Toggle follow note", checkCallback: checking => {
@@ -122,7 +122,7 @@ export default class IdeaverseMapsPlugin extends Plugin {
   }
   async saveScanCache() { const txt = JSON.stringify(this.cacheData); if (await this.idbSet("scan-cache", txt)) return;
     // no IndexedDB here: fall back to the file
-    try { await this.app.vault.adapter.write(this.cachePath, txt); } catch (e) { console.warn("Maps of the Ideaverse: couldn't save the scan cache", e); } }
+    try { await this.app.vault.adapter.write(this.cachePath, txt); } catch (e) { console.warn("Exploration Maps: couldn't save the scan cache", e); } }
 
   /** Read the whole vault into the map's data (see scan.js). */
   async getGraph(onProgress) {

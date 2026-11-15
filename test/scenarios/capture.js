@@ -13,7 +13,7 @@ module.exports = async ({ page, sleep, shot }) => {
   console.log('recording:', await page.evaluate(() => document.querySelector('.ivm #capbtn').className + ' ' + document.querySelector('.ivm .capdot').textContent));
   await sleep(5000);
   console.log('after clip:', await page.evaluate(() => { const c = document.querySelector('.ivm .capcard'); return c ? c.textContent : 'no card'; }));
-  const files = await page.evaluate(() => app.vault.getFiles().filter(f => /Maps of the Ideaverse/.test(f.name) && /png|mp4|webm/.test(f.extension)).map(f => f.path + ' ' + f.stat.size));
+  const files = await page.evaluate(() => app.vault.getFiles().filter(f => /Exploration Maps/.test(f.name) && /png|mp4|webm/.test(f.extension)).map(f => f.path + ' ' + f.stat.size));
   console.log('files:', files.join(' | '));
   await shot('cap-clip');
   console.log('errors:', errs.join(' | ') || 'none');

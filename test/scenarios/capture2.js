@@ -15,7 +15,7 @@ module.exports = async ({ page, sleep, shot }) => {
   await sleep(10500);
   console.log('after share:', await page.evaluate(() => { const c = document.querySelector('.ivm .capcard'), v = c && c.querySelector('video'); return document.querySelector('.ivm').dataset.view + ' | ' + (c ? c.textContent : 'no card') + ' | ' + (v ? v.videoWidth + 'x' + v.videoHeight + ' ' + v.duration : ''); }));
   await shot('cap2-after');
-  const files = await page.evaluate(() => app.vault.getFiles().filter(f => /Maps of the Ideaverse/.test(f.name) && /png|mp4|webm/.test(f.extension)).map(f => f.path + ' ' + f.stat.size));
+  const files = await page.evaluate(() => app.vault.getFiles().filter(f => /Exploration Maps/.test(f.name) && /png|mp4|webm/.test(f.extension)).map(f => f.path + ' ' + f.stat.size));
   console.log('files:', files.join(' | '));
   console.log('errors:', errs.join(' | ') || 'none');
 };
