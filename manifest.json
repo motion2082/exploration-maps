@@ -1,7 +1,7 @@
 {
   "id": "exploration-maps",
   "name": "Exploration Maps",
-  "version": "0.8.22",
+  "version": "1.0.0",
   "minAppVersion": "1.5.0",
   "description": "Visualize your notes across interactive maps (Levels, Cosmos, Starfield and more), with a Garden for growth stages. Based on Nick Milo's Maps of the Ideaverse.",
   "author": "Paul D (based on Nick Milo's Maps of the Ideaverse)",
