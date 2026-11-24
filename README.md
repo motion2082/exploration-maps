@@ -228,4 +228,6 @@ Two buttons on the Capture card open a website, and only when you press them: **
 
 ## License
 
-MIT
+Copyright (C) 2026 Paul D. Licensed under the GNU General Public License, version 3 (GPL-3.0); see LICENSE. Exploration Maps 1.0.0 and earlier were released under the MIT License.
+
+Exploration Maps is based on Nick Milo's Maps of the Ideaverse 0.8.22, which was released under the MIT License, Copyright (c) 2026 Nick Milo. That notice is kept in NOTICE. Nick's plugin moved to GPL-3.0 from version 0.9.138.
